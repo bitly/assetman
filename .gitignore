@@ -1,0 +1,9 @@
+#doc files
+docs/build/
+
+#editor junk
+*.swp
+
+#compiled output
+*.pyc
+

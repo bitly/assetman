@@ -1,0 +1,18 @@
+<html>
+    <head>
+        {% apply assetman.include_css %}
+            assets/css/test.css
+        {% end %}
+        {% apply assetman.include_less %}
+            assets/less/test.less
+        {% end %}
+    </head>
+    <body>
+        <div>
+            <h1>This is only a test</h1>
+        </div>
+        {% apply assetman.include_js %}
+            assets/js/test.js
+        {% end %}
+    </body>
+</html>
