@@ -6,4 +6,3 @@ include_js = JSManager.include
 include_css = CSSManager.include
 include_less = LessManager.include
 include_sass = SassManager.include
-
