@@ -1,0 +1,19 @@
+{% load assetman_tags %}
+<html>
+    <head>
+        {% assetman include_css %}
+            assets/css/test.css
+        {% endassetman %}
+        {% assetman include_less %}
+            assets/less/test.less
+        {% endassetman %}
+    </head>
+    <body>
+        <div>
+            <h1>This is only a test</h1>
+        </div>
+        {% assetman include_js %}
+            assets/js/test.js
+        {% endassetman %}
+    </body>
+</html>

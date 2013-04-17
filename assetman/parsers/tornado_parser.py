@@ -2,31 +2,12 @@ from __future__ import absolute_import, with_statement
 
 import os
 import tornado.template
-from assetman.tools import include_expr_matcher 
+from assetman.tools import include_expr_matcher
 from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler
-from assetman.settings import Settings
+from assetman.parsers import base
 
-class TemplateParser(object):
-    """ Base template parsing class, to serve as a drop in template wrapper for
-    template agnosticism.
-    """
 
-    def __init__(self, template_path, settings=None, **kwargs):
-        self.settings = settings or Settings()
-        self.template_path = template_path
-        self.load_template(template_path)
-
-    def load_template(self, path):
-        """ This method must be defined to load template-language specific loading 
-        mechanism on init. """
-        pass
-
-    def get_compilers(self):
-        """ Define this method to return all compilers required for the assetman blocks
-        contained by this template """ 
-        raise Exception("Not implemented")
-
-class TornadoParser(TemplateParser):
+class TornadoParser(base.TemplateParser):
     """ Template parser for parsing and handling tornado templates """
 
     def load_template(self, path):
@@ -42,13 +23,10 @@ class TornadoParser(TemplateParser):
         """
         # Map from template-side assetman manager calls to the corresponding
         # compiler classes
-        compiler_classes = [JSCompiler, LessCompiler, CSSCompiler]
-        compiler_map = dict((c.include_expr, c) for c in compiler_classes)
-
         for asset_block in self.__iter_child_nodes(self.template.file, self.__is_assetman_block):
             include_expr = include_expr_matcher(asset_block.method).group(1)
-            assert include_expr in compiler_map, 'No compiler for %s' % asset_block.method
-            compiler_cls = compiler_map[include_expr]
+            assert include_expr in base.compiler_map, 'No compiler for %s' % asset_block.method
+            compiler_cls = base.compiler_map[include_expr]
             yield compiler_cls(self.__extract_text(asset_block), self.template_path, settings=self.settings) 
 
     def __is_assetman_block(self, node):
