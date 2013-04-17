@@ -4,7 +4,7 @@ import os
 HERE = os.path.abspath(os.path.dirname(__file__))
 
 INSTALLED_APPS = [
-    'assetman.djangoutils',
+    'assetman.django_assetman',
 ]
 
 TEMPLATE_DIRS = [

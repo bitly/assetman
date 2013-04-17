@@ -2,7 +2,7 @@ from __future__ import absolute_import, with_statement
 
 import django.template
 import django.template.loader
-from assetman.djangoutils.templatetags.assetman_tags import AssetmanNode
+from assetman.django_assetman.templatetags.assetman_tags import AssetmanNode
 from assetman.parsers import base
 
 

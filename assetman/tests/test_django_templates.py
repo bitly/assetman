@@ -32,7 +32,7 @@ class TestDjangoTemplateParser(unittest.TestCase):
         assert LessCompiler in compiler_types, compilers
         assert CSSCompiler in compiler_types, compilers
 
-    def test_template_rendering__no_cdn(self):
+    def test_template_rendering_without_cdn(self):
         parser = DjangoParser(self.TEST_TEMPLATE_PATH)
         template = parser.template
         context = django.template.context.Context({})
@@ -41,16 +41,7 @@ class TestDjangoTemplateParser(unittest.TestCase):
         self.assertIn('<link href="STATIC/assets/less/test.less"', result)
         self.assertIn('<script src="STATIC/assets/js/test.js"', result)
 
-    def test_template_rendering__without_cdn(self):
-        parser = DjangoParser(self.TEST_TEMPLATE_PATH)
-        template = parser.template
-        context = django.template.context.Context({})
-        result = template.render(context)
-        self.assertIn('<link href="STATIC/assets/css/test.css"', result)
-        self.assertIn('<link href="STATIC/assets/less/test.less"', result)
-        self.assertIn('<script src="STATIC/assets/js/test.js"', result)
-
-    def test_template_rendering__with_cdn(self):
+    def test_template_rendering_with_cdn(self):
         from django.conf import settings
         settings.ASSETMAN_SETTINGS['enable_static_compilation'] = False
         try:
