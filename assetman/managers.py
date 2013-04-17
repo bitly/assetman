@@ -14,13 +14,15 @@ class AssetManager(object):
     compilation for Tornado (or other?) templates.
 
     On the template side, assuming this `assetman` module is available in the
-    template context, use should be as easy as:
+    template context, use in Tornado should be as easy as:
 
         {% apply assetman.include_js %}
         js/utils.js
         js/lib.js
         js/main.js
         {% end %}
+
+    (Variations can/should be created for other frameworks.)
 
     With this block in place, each individual JavaScript file will be included
     in the resulting document in development. In production, a single,
@@ -120,16 +122,14 @@ class AssetManager(object):
         static_url_prefix = static_url_prefix or self.settings.get("static_url_prefix")
         local_cdn_url_prefix = local_cdn_url_prefix or self.settings.get("local_cdn_url_prefix")
 
+        make_url = functools.partial(self.make_asset_url,
+                                     static_url_prefix=static_url_prefix,
+                                     local_cdn_url_prefix=local_cdn_url_prefix)
         if self.settings['enable_static_compilation']:
-            asset_url_partial = functools.partial(self.make_asset_url, 
-                static_url_prefix=static_url_prefix, 
-                local_cdn_url_prefix=local_cdn_url_prefix)
-
-            urls = map(asset_url_partial, self.rel_urls)
-
+            urls = map(make_url, self.rel_urls)
             return '\n'.join(map(self.render_asset, urls))
         else:
-            return self.render_asset(self.make_asset_url(self.get_compiled_name(), static_url_prefix, local_cdn_url_prefix))
+            return self.render_asset(make_url(self.get_compiled_name()))
 
     @classmethod
     def include(cls, s=None, **kwargs):
