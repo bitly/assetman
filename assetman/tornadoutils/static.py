@@ -15,10 +15,10 @@ from assetman.managers import JSManager, CSSManager, LessManager, SassManager
 class AssetmanMixin(object):
     def render(self, *args, **kwargs):
         kwargs.update({
-                "include_js": JSManager("", settings=self.settings['assetman_settings']).include,
-                "include_css": CSSManager("", settings=self.settings['assetman_settings']).include,
-                "include_less": LessManager("", settings=self.settings['assetman_settings']).include,
-                "include_sass": SassManager("", settings=self.settings['assetman_settings']).include,
+                "include_js": JSManager("", settings=self.settings['assetman_settings']).render,
+                "include_css": CSSManager("", settings=self.settings['assetman_settings']).render,
+                "include_less": LessManager("", settings=self.settings['assetman_settings']).render,
+                "include_sass": SassManager("", settings=self.settings['assetman_settings']).render,
             }) 
 
         super(AssetmanMixin, self).render(*args, **kwargs)
