@@ -15,4 +15,5 @@ ASSETMAN_SETTINGS = {
     'enable_static_compilation': True,
     'static_url_prefix': 'STATIC',
     'local_cdn_url_prefix': 'CDN',
+    'compiled_asset_root': '/tmp',
 }

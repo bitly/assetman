@@ -159,9 +159,12 @@ def build_compilers(paths, settings):
     parser_worker = ParserWorker(settings)
     return [x for xs in pool.map_async(parser_worker, paths).get(1e100) for x in xs]
 
-def iter_template_deps(static_dir, src_path):
+
+def iter_template_deps(static_dir, src_path, static_url_prefix):
     """Yields static resources included as {{assetman.static_url()}} calls
     in the given source path, which should be a Tornado template.
+
+    TODO: need one of these for every supported template language?
     """
     src = open(src_path).read()
     for match in static_url_call_finder(src):
@@ -284,6 +287,7 @@ def _build_manifest_helper(static_dir, src_paths, static_url_prefix, manifest):
             manifest['assets'][src_path]['deps'].add(dep_path)
             _build_manifest_helper(static_dir, [dep_path], static_url_prefix, manifest)
 
+
 def build_manifest(paths, settings):
     """Recursively builds the dependency manifest for the given list of source
     paths.
@@ -357,8 +361,11 @@ def main(options):
     # Find all the templates we need to parse
     paths = list(iter_template_paths(settings['template_dirs'], settings['template_extension']))
 
+    if not paths:
+        logging.warn("No templates found")
+
     # Load the current manifest and generate a new one
-    cached_manifest = Manifest(settings).load_manifest()
+    cached_manifest = Manifest(settings).load()
     try:
         current_manifest, compilers = build_manifest(paths, settings)
     except ParseError, e:
@@ -434,7 +441,7 @@ def main(options):
             logging.error('Error uploading assets')
             return 1
 
-        current_manifest.write()
+        Manifest(settings).write(current_manifest)
 
     return 0
 

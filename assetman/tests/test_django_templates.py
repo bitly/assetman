@@ -43,6 +43,7 @@ class TestDjangoTemplateParser(unittest.TestCase):
 
     def test_template_rendering_with_cdn(self):
         from django.conf import settings
+        old_am_settings = dict(settings.ASSETMAN_SETTINGS)
         settings.ASSETMAN_SETTINGS['enable_static_compilation'] = False
         try:
             parser = DjangoParser(self.TEST_TEMPLATE_PATH, settings=settings)
@@ -54,7 +55,7 @@ class TestDjangoTemplateParser(unittest.TestCase):
             self.assertNotIn('<link href="STATIC/assets/less/test.less"', result)
             self.assertNotIn('<script src="STATIC/assets/js/test.js"', result)
         finally:
-            settings.ASSETMAN_SETTINGS['enable_static_compilation'] = True
+            settings.ASSETMAN_SETTINGS = old_am_settings
 
 
 if __name__ == "__main__":

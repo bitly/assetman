@@ -225,7 +225,7 @@ class LessCompiler(CSSCompiler, assetman.LessManager):
         # First we "compile" the less files into CSS
         lessc = self.settings.get("lessc_path")
         outputs = [run_proc([lessc, path]) for path in self.get_paths()]
-        return super(LessCompiler, self).do_compile('\n'.join(outputs))
+        return super(LessCompiler, self).do_compile(css_input='\n'.join(outputs))
 
 
 class SassCompiler(CSSCompiler, assetman.SassManager):
@@ -238,5 +238,5 @@ class SassCompiler(CSSCompiler, assetman.SassManager):
             '--compass', '--trace', '-l',
         ] + self.rel_urls
         output = run_proc(cmd)
-        return super(SassCompiler, self).do_compile(output)
+        return super(SassCompiler, self).do_compile(css_input=output)
 

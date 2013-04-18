@@ -32,7 +32,7 @@ class Manifest(object):
                 logging.warn('Missing/invalid manifest file: %s', e)
                 self._manifest = self.make_empty_manifest()
 
-            return self._manifest
+        return self._manifest
 
     def write(self, manifest=None, compiled_asset_path=None, **kwargs):
         manifest = manifest or self._manifest
