@@ -108,7 +108,9 @@ class CompileWorker(object):
 
     def __call__(self, compiler):
         with open(compiler.get_compiled_path(), 'w') as outfile:
-            outfile.write(compiler.compile(self.manifest, self.skip_inline_images))
+            outfile.write(compiler.compile(self.manifest,
+                                           skip_inline_images=self.skip_inline_images))
+
 
 ##############################################################################
 # Compiler support functions
