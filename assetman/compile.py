@@ -375,7 +375,7 @@ def main(options):
         return 1
     except DependencyError, e:
         src_path, missing_deps = e.args
-        logging.error('Dependency error in %s!', src_path)
+        logging.error('Dependency error in source %s!', src_path)
         logging.error('Missing paths: %s', missing_deps)
         return 1
 
@@ -446,5 +446,6 @@ def main(options):
     return 0
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.DEBUG)
     options, args = parser.parse_args()
     sys.exit(main(options))

@@ -61,13 +61,29 @@ class AssetCompiler(object):
     def __init__(self, *args, **kwargs): 
         super(AssetCompiler, self).__init__(*args, **kwargs)
 
+    def required_setting(self, key):
+        """
+        Get the named setting from self.settings and give an informative
+        error if it's missing.
+
+        This is helpful because when run under multiprocessing, we get only
+        the exception name and message without a useful traceback,
+        so it's hard to know how/where to fix the problem.
+        http://bugs.python.org/issue13831
+        """
+        if key not in self.settings:
+            raise KeyError("settings[%r] is required by compiler %s"
+                           % (key, self.__class__.__name__))
+        return self.settings[key]
+
     def compile(self, manifest, **kwargs):
         """Compiles the assets in this Assetman block. Returns compiled source
         code as a string. The given manifest is used to version static paths
         in the compiled source code.
         """
-        logging.info('Compiling %s', self)
-        return self.do_compile(**kwargs)
+        logging.info("Compiling %s", self)
+        result =  self.do_compile(**kwargs)
+        return result
 
     def do_compile(self, **kwargs):
         raise NotImplementedError
@@ -132,7 +148,7 @@ class JSCompiler(AssetCompiler, assetman.JSManager):
         let it go to work.
         """
         cmd = [
-            'java', '-jar', self.settings.get("closure_compiler"),
+            'java', '-jar', self.required_setting("closure_compiler"),
             '--compilation_level', 'SIMPLE_OPTIMIZATIONS',
             ]
         for path in self.get_paths():
@@ -159,7 +175,7 @@ class CSSCompiler(AssetCompiler, assetman.CSSManager):
         if not kwargs.get("skip_inline_images"):
             css_input = self.inline_images(css_input)
         cmd = [
-            'java', '-jar', self.settings.get("yui_compressor_path"),
+            'java', '-jar', self.required_setting("yui_compressor_path"),
             '--type', 'css', '--line-break', '160',
         ]
         return run_proc(cmd, stdin=css_input)
@@ -178,7 +194,7 @@ class CSSCompiler(AssetCompiler, assetman.CSSManager):
         # We only want to replace asset references that show up inside of
         # `url()` rules (this avoids weird constructs like IE-specific filters
         # for transparent PNG support).
-        base_pattern = get_static_pattern(self.settings.get('static_url_prefix'))
+        base_pattern = get_static_pattern(self.required_setting('static_url_prefix'))
         pattern = r"""(url\(["']?)%s(["']?\))""" % base_pattern
 
         # Track duplicate images so that we can warn about them
@@ -223,7 +239,7 @@ class LessCompiler(CSSCompiler, assetman.LessManager):
         of the compiled CSS to the YUI compressor.
         """
         # First we "compile" the less files into CSS
-        lessc = self.settings.get("lessc_path")
+        lessc = self.required_setting("lessc_path")
         outputs = [run_proc([lessc, path]) for path in self.get_paths()]
         return super(LessCompiler, self).do_compile(css_input='\n'.join(outputs))
 
@@ -234,7 +250,7 @@ class SassCompiler(CSSCompiler, assetman.SassManager):
 
     def do_compile(self, **kwargs):
         cmd = [
-            self.settings.get("sass_compiler_path"),
+            self.required_setting("sass_compiler_path"),
             '--compass', '--trace', '-l',
         ] + self.rel_urls
         output = run_proc(cmd)
