@@ -5,7 +5,7 @@ from assetman.parsers.tornado_parser import TornadoParser
 
 class TestTornadoTemplateParser(unittest.TestCase):
 
-    TEST_TEMPLATE_PATH = "assetman/tests/tornado_test_template.html"
+    TEST_TEMPLATE_PATH = "assetman/tests/tornado_templates/tornado_test_template.html"
 
     def test_loads_template_from_path(self):
         parser = TornadoParser(self.TEST_TEMPLATE_PATH) 

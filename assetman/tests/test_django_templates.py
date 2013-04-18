@@ -14,7 +14,7 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 
 class TestDjangoTemplateParser(unittest.TestCase):
 
-    TEST_TEMPLATE_PATH = 'django_test_template.html'
+    TEST_TEMPLATE_PATH = 'django_templates/django_test_template.html'
 
     def test_loads_template_from_path(self):
         parser = DjangoParser(self.TEST_TEMPLATE_PATH) 
@@ -37,9 +37,9 @@ class TestDjangoTemplateParser(unittest.TestCase):
         template = parser.template
         context = django.template.context.Context({})
         result = template.render(context)
-        self.assertIn('<link href="STATIC/assets/css/test.css"', result)
-        self.assertIn('<link href="STATIC/assets/less/test.less"', result)
-        self.assertIn('<script src="STATIC/assets/js/test.js"', result)
+        self.assertIn('<link href="STATIC/assets/test.css"', result)
+        self.assertIn('<link href="STATIC/assets/test.less"', result)
+        self.assertIn('<script src="STATIC/assets/test.js"', result)
 
     def test_template_rendering_with_cdn(self):
         from django.conf import settings

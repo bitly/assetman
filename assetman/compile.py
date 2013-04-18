@@ -340,6 +340,10 @@ def _create_settings(options):
 
 def main(options):
     settings = _create_settings(options) 
+    # HACK HACK HACK XXX
+    settings['closure_compiler'] = '/bitly/local/bin/closure-compiler.jar'
+    settings['yui_compressor_path'] = '/bitly/local/bin/yuicompressor.jar'
+    settings['lessc_path'] = '/bitly/local/bin/lessc'
 
     if not re.match(r'^/.*?/$', settings.get('static_url_prefix')):
         logging.error('static_url_prefix setting must begin and end with a slash')
