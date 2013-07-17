@@ -121,7 +121,12 @@ class AssetManager(object):
         local_cdn_url_prefix = local_cdn_url_prefix or self.settings.get("local_cdn_url_prefix")
 
         if self.settings['enable_static_compilation']:
-            urls = map(functools.partial(self.make_asset_url, static_url_prefix, local_cdn_url_prefix), self.rel_urls)
+            asset_url_partial = functools.partial(self.make_asset_url, 
+                static_url_prefix=static_url_prefix, 
+                local_cdn_url_prefix=local_cdn_url_prefix)
+
+            urls = map(asset_url_partial, self.rel_urls)
+
             return '\n'.join(map(self.render_asset, urls))
         else:
             return self.render_asset(self.make_asset_url(self.get_compiled_name(), static_url_prefix, local_cdn_url_prefix))

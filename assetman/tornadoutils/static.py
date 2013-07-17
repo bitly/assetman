@@ -10,16 +10,17 @@ import stat
 import subprocess
 
 import tornado.web
-from assetman.managers import JSManager, CSSManager, LessManager, SassManager
+import assetman
 
 class AssetmanMixin(object):
+    def __init__(self, *args, **kwargs):
+        super(AssetmanMixin, self).__init__(*args, **kwargs)
+        assert hasattr(self.application, 'assetman_template_helper')
+        assert isinstance(self.application.assetman_template_helper, 
+            assetman.tornadoutils.helpers.TornadoTemplateHelper) 
+
     def render(self, *args, **kwargs):
-        kwargs.update({
-                "include_js": JSManager("", settings=self.settings['assetman_settings']).render,
-                "include_css": CSSManager("", settings=self.settings['assetman_settings']).render,
-                "include_less": LessManager("", settings=self.settings['assetman_settings']).render,
-                "include_sass": SassManager("", settings=self.settings['assetman_settings']).render,
-            }) 
+        kwargs.update({"assetman": self.application.assetman_template_helper})
 
         super(AssetmanMixin, self).render(*args, **kwargs)
 
