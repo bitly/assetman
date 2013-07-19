@@ -14,6 +14,7 @@ from optparse import OptionParser
 from assetman.manifest import Manifest 
 from assetman.tools import iter_template_paths, get_static_pattern, make_static_path, get_parser
 from assetman.compilers import DependencyError, ParseError, CompileError
+from assetman.S3UploadThread import S3UploadThread
 
 from assetman.settings import Settings
 
@@ -52,12 +53,29 @@ parser.add_option(
     help='Force a recompile of everything.')
 
 parser.add_option(
+    '-i', '--skip-inline-images', action="store_true",
+    help='Do not sub data URIs for small images in CSS.')
+
+#TODO: maybe make a /plugins directory and script that optionally adds this stuff
+parser.add_option(
     '-u', '--skip-upload', action="store_true",
     help='Do not upload anything to S3.')
 
 parser.add_option(
-    '-i', '--skip-inline-images', action="store_true",
-    help='Do not sub data URIs for small images in CSS.')
+    '--aws_username', type="string", 
+    help="AWS username, required for uploading to s3")
+
+parser.add_option(
+    '--aws_access_key', type="string",
+    help="AWS access key, required for uploading to s3")
+
+parser.add_option(
+    '--aws_secret_key', type="string",
+    help="AWS secret key, required for uplaoding to s3")
+
+parser.add_option(
+    '--s3_assets_bucket', type="string",
+    help="AWS s3 bucket to store assets, required for uploading to s3")
 
 
 # Static calls are like {{ assetman.static_url('path.jpg') }} or include
@@ -308,7 +326,11 @@ def _create_settings(options):
                     static_url_prefix=options.static_url_path,
                     compiled_manifest_path=options.compiled_manifest_path,
                     template_dirs=options.template_dir,
-                    template_extension=options.template_ext)
+                    template_extension=options.template_ext,
+                    aws_username=options.aws_username,
+                    aws_access_key=options.aws_access_key,
+                    aws_secret_key=options.aws_secret_key,
+                    s3_assets_bucket=options.s3_assets_bucket)
 
 def main(options):
     settings = _create_settings(options) 
@@ -403,6 +425,11 @@ def main(options):
             return 1
         except KeyboardInterrupt:
             logging.error('Interrupted by user, exiting...')
+            return 1
+
+        #TODO: refactor to some chain of command for plugins
+        if not S3UploadThread.upload_assets(current_manifest, options.skip_upload):
+            logging.error('Error uploading assets')
             return 1
 
         current_manifest.write()

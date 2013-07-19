@@ -112,7 +112,7 @@ class S3UploadThread(threading.Thread):
         return 'public, max-age=%s' % (86400 * 365 * 10)
 
 
-def upload_assets(manifest, options):
+def upload_assets(manifest, skip=False):
     """Uploads any assets that are in the given manifest and in our compiled
     output dir but missing from our static assets bucket to that bucket on S3.
     """
@@ -141,7 +141,7 @@ def upload_assets(manifest, options):
         to_upload.add((file_name, file_path))
 
     logging.info('Found %d assets to upload to S3', len(to_upload))
-    if options.skip_upload:
+    if skip:
         logging.warn('NOTE: Skipping uploads to S3')
         return True
 
