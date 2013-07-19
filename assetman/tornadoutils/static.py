@@ -19,10 +19,10 @@ class AssetmanMixin(object):
         assert isinstance(self.application.assetman_template_helper, 
             assetman.tornadoutils.helpers.TornadoTemplateHelper) 
 
-    def render(self, *args, **kwargs):
-        kwargs.update({"assetman": self.application.assetman_template_helper})
+    def render_string(self, template_name, **kwargs):
+        return super(AssetmanMixin, self).render_string(template_name, 
+            assetman=self.application.assetman_template_helper, **kwargs)
 
-        super(AssetmanMixin, self).render(*args, **kwargs)
 
 class StaticFileHandler(tornado.web.RequestHandler):
 
