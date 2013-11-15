@@ -3,7 +3,6 @@
 from __future__ import with_statement
 
 import os
-import sys
 import re
 import logging
 import multiprocessing
@@ -384,8 +383,7 @@ def _create_settings(options):
 
 def run(settings):
     if not re.match(r'^/.*?/$', settings.get('static_url_prefix')):
-        logging.error('static_url_prefix setting must begin and end with a slash')
-        sys.exit(1)
+        raise Exception('static_url_prefix setting must begin and end with a slash')
 
     if not os.path.isdir(settings['compiled_asset_root']) and not settings['test_needs_compile']:
         logging.info('Creating output directory: %s', settings['compiled_asset_root'])
@@ -393,12 +391,10 @@ def run(settings):
 
     for d in settings['tornado_template_dirs'] + settings['django_template_dirs']:
         if not os.path.isdir(d):
-            logging.error('Template directory not found: %r', d)
-            return 1
+            raise Exception('Template directory not found: %r', d)
 
     if not os.path.isdir(settings['static_dir']):
-        logging.error('Static directory not found: %r', settings['static_dir'])
-        return 1
+        raise Exception('Static directory not found: %r', settings['static_dir'])
 
     # Find all the templates we need to parse
     tornado_paths = list(iter_template_paths(settings['tornado_template_dirs'], settings['template_extension']))
@@ -474,7 +470,7 @@ def run(settings):
             logging.error('Compile error!')
             logging.error('Command: %s', ' '.join(cmd))
             logging.error('Error:   %s', msg)
-            return 1
+            raise Exception('Compilation Failed')
 
         #TODO: refactor to some chain of command for plugins
         if settings['aws_username']:
@@ -482,10 +478,8 @@ def run(settings):
 
         Manifest(settings).write(current_manifest)
 
-    return 0
-
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
     options, args = parser.parse_args()
     settings = _create_settings(options) 
-    sys.exit(run(settings))
+    run(settings)

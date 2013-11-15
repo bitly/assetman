@@ -9,9 +9,6 @@ import django.template
 from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler
 from assetman.parsers.django_parser import DjangoParser
 
-HERE = os.path.abspath(os.path.dirname(__file__))
-
-
 class TestDjangoTemplateParser(unittest.TestCase):
 
     TEST_TEMPLATE_PATH = 'django_templates/django_test_template.html'
