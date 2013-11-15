@@ -6,7 +6,7 @@ import functools
 import hashlib
 
 from assetman.settings import Settings
-import assetman.tools as tools
+from assetman.tools import get_shard_from_list, _utf8
 from assetman.manifest import Manifest
 
 class AssetManager(object):
@@ -47,7 +47,7 @@ class AssetManager(object):
         Any extra kwargs will be interpreted as extra HTML params to include
         on the rendered element.
         """
-        self.rel_urls = filter(None, tools._utf8(rel_url_text).split())
+        self.rel_urls = filter(None, _utf8(rel_url_text).split())
         self.local = local
         self.include_tag = include_tag
         self.src_path = src_path
@@ -92,13 +92,16 @@ class AssetManager(object):
             prefix = static_url_prefix or self.settings.get('static_url_prefix')
         elif self.local:
             prefix = local_cdn_url_prefix or self.settings.get('local_cdn_url_prefix')
+        else:
+            prefix = get_shard_from_list(self.settings['cdn_url_prefix'], os.path.basename(rel_url))
+
         return prefix.rstrip('/') + '/' + rel_url.lstrip('/')
 
     def render_attrs(self):
         """Returns this asset block's attrs as an HTML string. Includes a
         leading space.
         """
-        attrs = ' '.join('%s=%r' % (attr, tools._utf8(val))
+        attrs = ' '.join('%s=%r' % (attr, _utf8(val))
                          for attr, val in self.attrs.iteritems())
         return ' ' + attrs if attrs else ''
 

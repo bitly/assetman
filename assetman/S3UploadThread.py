@@ -10,9 +10,8 @@ import email
 import Queue
 import mimetypes
 import logging
-import binascii
 from boto.s3.connection import S3Connection
-from assetman.tools import make_output_path, make_static_path, get_static_pattern
+from assetman.tools import make_output_path, make_static_path, get_static_pattern, get_shard_from_list
 
 class S3UploadThread(threading.Thread):
     """Thread that knows how to read asset file names from a queue and upload
@@ -163,22 +162,6 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     if errors:
         raise Exception(errors)
 
-def get_shard_from_list(settings_list, shard_id):
-    assert isinstance(settings_list, (list, tuple)), "must be a list not %r" % settings_list
-    shard_id = _crc(shard_id)
-    bucket = shard_id % len(settings_list)
-    return settings_list[bucket]
-
-def _crc(key):
-    """crc32 hash a string"""
-    return binascii.crc32(_utf8(key)) & 0xffffffff
-
-def _utf8(s):
-    """encode a unicode string as utf-8"""
-    if isinstance(s, unicode):
-        return s.encode("utf-8")
-    assert isinstance(s, str), "_utf8 expected a str, not %r" % type(s)
-    return s
 
 
 def sub_static_version(src, manifest, replacement_prefix, static_dir, static_url_prefix):
