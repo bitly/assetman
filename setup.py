@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='assetman',
-      version='0.1.7',
+      version='0.1.9',
       description='AssetMan asset manager',
       url="http://github.com/bitly/assetman",
       license="Apache Software License",
@@ -11,10 +11,11 @@ setup(name='assetman',
       author_email="wm@bit.ly",
       maintainer="Anton Fritsch",
       maintainer_email="anton@bit.ly",
-      packages=['assetman', 'assetman/tornadoutils'],
+      packages=['assetman', 'assetman/parsers', 'assetman/tornadoutils', 'assetman/django_assetman', 
+                        'assetman/django_assetman/templatetags'],
       install_requires=['simplejson',
                         'multiprocessing',
                        ],
 
-      scripts=['scripts/compile']
+      scripts=['scripts/assetman_compile']
 )

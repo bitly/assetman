@@ -28,7 +28,7 @@ If you use the built in `static_url` function, an error will be raised.
 
 ### The compiler
 
-The Assetman compiler can be called via commandline using the `compile`
+The Assetman compiler can be called via commandline using the `assetman_compile`
 script.
 
 The compiler starts by building a manifest file which describes the
@@ -102,16 +102,16 @@ Static assets are served by a special `StaticFileHandler`. It knows how to
 handle three types of URLs (assume `static_url_prefix` is `/s/beta/` for 
 these examples):
 
- 1. Unversioned URLs: `/s/beta/{path}`
+ 1. Unversioned URLs: `/s/{path}`
 
     This is used to serve unversioned, uncompiled assets during development.
 
- 2. Versioned URLs: `/s/beta/v:{version}/{path}`
+ 2. Versioned URLs: `/s/v:{version}/{path}`
 
     This is used to serve static assets referenced directly or via
     `assetman.static_url`, where no fallbacks are necessary.
 
- 3. Versioned URLs with fallbacks: `/s/beta/v:{version}/f:{a:b:c}/{hash}`
+ 3. Versioned URLs with fallbacks: `/s/v:{version}/f:{a:b:c}/{hash}`
 
     This is used to request compiled asset blocks while also providing the
     ability for the server to respond with as many of the constituent assets
@@ -121,18 +121,10 @@ these examples):
 Assetman takes care of generating the appropriate URLs at compile time (for
 the second kind of URL) or template render time (for the 3rd).
 
-### Running the Assetman compiler manually
+### Running the Assetman compiler
 
-If any errors are encountered during the Assetman compilation process, a
-deploy will fail.  Errors are logged in logatron under the `www` app, so
-you may be able to find and fix the error without running Assetman manually.
-
-If you do need or want to run the compiler manually, though, here's the
-command that is run by the deploy process (split over multiple lines for
-readability's sake):
-
-    python www/scripts/assetman_compiler.py \
+    assetman_compile \
         --output_dir=/data/assets \
-        --static_url_prefix=/s/beta/ \
+        --static_url_prefix=/s/ \
         --template_dir=templates \
-        --template_dir=../www/templates
+        --template_dir=../other/templates

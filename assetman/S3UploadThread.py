@@ -1,3 +1,5 @@
+#!/bin/python
+from __future__ import with_statement
 import re
 import os
 import sys
@@ -9,7 +11,7 @@ import Queue
 import mimetypes
 import logging
 from boto.s3.connection import S3Connection
-from assetman import make_output_path, make_static_path, get_static_pattern
+from assetman.tools import make_output_path, make_static_path, get_static_pattern, get_shard_from_list
 
 class S3UploadThread(threading.Thread):
     """Thread that knows how to read asset file names from a queue and upload
@@ -23,13 +25,14 @@ class S3UploadThread(threading.Thread):
     at CloudFront instead of our local CDN proxy.
     """
 
-    def __init__(self, queue, errors, manifest):
+    def __init__(self, queue, errors, manifest, settings):
         threading.Thread.__init__(self)
         cx = S3Connection(settings.get('aws_access_key'), settings.get('aws_secret_key'))
         self.bucket = cx.get_bucket(settings.get('s3_assets_bucket'))
         self.queue = queue
         self.errors = errors
         self.manifest = manifest
+        self.settings = settings
 
     def run(self):
         while True:
@@ -69,7 +72,7 @@ class S3UploadThread(threading.Thread):
 
             # Next we will upload the same file with a prefixed key, to be
             # served by our "local CDN proxy".
-            key_prefix = settings.get('local_cdn_url_prefix').lstrip('/').rstrip('/')
+            key_prefix = self.settings.get('local_cdn_url_prefix').lstrip('/').rstrip('/')
             key = self.bucket.new_key(key_prefix + '/' + file_name)
             self.upload_file(key, file_data, headers, for_cdn=False)
 
@@ -87,14 +90,16 @@ class S3UploadThread(threading.Thread):
             if re.search(r'\.(css|js)$', key.name):
                 if for_cdn:
                     logging.info('Rewriting URLs => CDN: %s', key.name)
-                    replacement_prefix = settings.get('cdn_url_prefix')
+                    replacement_prefix = self.settings.get('cdn_url_prefix')
                 else:
                     logging.info('Rewriting URLs => local proxy: %s', key.name)
-                    replacement_prefix = settings.get('local_cdn_url_prefix')
+                    replacement_prefix = self.settings.get('local_cdn_url_prefix')
                 file_data = sub_static_version(
                     file_data,
                     self.manifest,
-                    replacement_prefix)
+                    replacement_prefix,
+                    self.settings['static_dir'],
+                    self.settings.get('static_url_prefix'))
             key.set_contents_from_string(file_data, headers, replace=False)
             logging.info('Uploaded %s', key.name)
             logging.debug('Headers: %r', headers)
@@ -112,7 +117,7 @@ class S3UploadThread(threading.Thread):
         return 'public, max-age=%s' % (86400 * 365 * 10)
 
 
-def upload_assets(manifest, skip=False):
+def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     """Uploads any assets that are in the given manifest and in our compiled
     output dir but missing from our static assets bucket to that bucket on S3.
     """
@@ -124,7 +129,7 @@ def upload_assets(manifest, skip=False):
     # assetman.include_* blocks in each template)
     for depspec in manifest['blocks'].itervalues():
         file_name = depspec['versioned_path']
-        file_path = make_output_path(file_name)
+        file_path = make_output_path(settings['compiled_asset_root'], file_name)
         assert os.path.isfile(file_path), 'Missing compiled asset %s' % file_path
         to_upload.add((file_name, file_path))
 
@@ -141,22 +146,25 @@ def upload_assets(manifest, skip=False):
         to_upload.add((file_name, file_path))
 
     logging.info('Found %d assets to upload to S3', len(to_upload))
-    if skip:
-        logging.warn('NOTE: Skipping uploads to S3')
-        return True
+    if skip_s3_upload:
+        logging.info('Skipping asset upload to S3')
+        return
 
     # Upload assets to S3 using 5 threads
     queue = Queue.Queue()
     errors = []
     for i in xrange(5):
-        uploader = S3UploadThread(queue, errors, manifest)
+        uploader = S3UploadThread(queue, errors, manifest, settings)
         uploader.setDaemon(True)
         uploader.start()
     map(queue.put, to_upload)
     queue.join()
-    return len(errors) == 0
+    if errors:
+        raise Exception(errors)
 
-def sub_static_version(src, manifest, replacement_prefix):
+
+
+def sub_static_version(src, manifest, replacement_prefix, static_dir, static_url_prefix):
     """Adjusts any static URLs in the given source to point to a different
     location.
 
@@ -167,15 +175,15 @@ def sub_static_version(src, manifest, replacement_prefix):
     """
     def replacer(match):
         prefix, rel_path = match.groups()
-        path = make_static_path(rel_path)
+        path = make_static_path(static_dir, rel_path)
         if path in manifest['assets']:
             versioned_path = manifest['assets'][path]['versioned_path']
             if isinstance(replacement_prefix, (list, tuple)):
-                prefix = settings.get_shard_from_list(replacement_prefix, versioned_path)
+                prefix = get_shard_from_list(replacement_prefix, versioned_path)
             else:
                 prefix = replacement_prefix
             return prefix.rstrip('/') + '/' + versioned_path.lstrip('/')
         logging.warn('Missing path %s in manifest, using %s', path, match.group(0))
         return match.group(0)
-    pattern = get_static_pattern(settings.get('static_url_prefix'))
+    pattern = get_static_pattern(static_url_prefix)
     return re.sub(pattern, replacer, src)

@@ -14,14 +14,18 @@ from optparse import OptionParser
 from assetman.manifest import Manifest 
 from assetman.tools import iter_template_paths, get_static_pattern, make_static_path, get_parser
 from assetman.compilers import DependencyError, ParseError, CompileError
-from assetman.S3UploadThread import S3UploadThread
+from assetman.S3UploadThread import upload_assets_to_s3
 
 from assetman.settings import Settings
 
 parser = OptionParser(description='Compiles assets for AssetMan')
 
 parser.add_option(
-    '--template-dir', type="string", action='append', 
+    '--django_template_dirs', type="string", action='append', 
+    help='Directory to crawl looking for static assets to compile.')
+
+parser.add_option(
+    '--tornado_template_dirs', type="string", action='append', 
     help='Directory to crawl looking for static assets to compile.')
 
 parser.add_option(
@@ -37,6 +41,10 @@ parser.add_option(
     help='Directory where compiled assets are to be placed.')
 
 parser.add_option(
+    '--static-path-prefix', type="string", default="",
+    help="Directory prefix to access static assets (matching url prefix)")
+
+parser.add_option(
     '--static-url-path', type="string", default="/",
     help="Static asset base url path")
 
@@ -49,21 +57,20 @@ parser.add_option(
     help='Check whether a compile is needed. Exits 1 if so.')
 
 parser.add_option(
-    '-f', '--force', action="store_true",
+    '-f', '--force-recompile', action="store_true",
     help='Force a recompile of everything.')
 
 parser.add_option(
     '-i', '--skip-inline-images', action="store_true",
     help='Do not sub data URIs for small images in CSS.')
 
-#TODO: maybe make a /plugins directory and script that optionally adds this stuff
 parser.add_option(
-    '-u', '--skip-upload', action="store_true",
-    help='Do not upload anything to S3.')
+    '--skip-s3-upload', action="store_true",
+    help='Skip uploading anything to s3')
 
 parser.add_option(
     '--aws_username', type="string", 
-    help="AWS username, required for uploading to s3")
+    help="AWS username, required for uploading to s3 (no upload if ommited)")
 
 parser.add_option(
     '--aws_access_key', type="string",
@@ -89,12 +96,13 @@ class ParserWorker(object):
     def __init__(self, settings):
         self.settings = settings
 
-    def __call__(self, template_path):
+    def __call__(self, template_info):
         """Takes a template path and returns a list of AssetCompiler instances
         extracted from that template. Helper function to be called by each process
         in the process pool created by find_assetman_compilers, above.
         """
-        template = get_parser(template_path, self.settings)
+        template_path, template_type = template_info
+        template = get_parser(template_path, self.settings, template_type)
         return list(template.get_compilers())
 
 class CompileWorker(object):
@@ -108,7 +116,9 @@ class CompileWorker(object):
 
     def __call__(self, compiler):
         with open(compiler.get_compiled_path(), 'w') as outfile:
-            outfile.write(compiler.compile(self.manifest, self.skip_inline_images))
+            outfile.write(compiler.compile(self.manifest,
+                                           skip_inline_images=self.skip_inline_images))
+
 
 ##############################################################################
 # Compiler support functions
@@ -144,7 +154,7 @@ def empty_asset_entry():
         'deps': set()
     }
 
-def build_compilers(paths, settings):
+def build_compilers(path_info, settings):
     """Parse each template and return a list of AssetCompiler instances for
     any assetman.include_* blocks in each template.
     """
@@ -155,11 +165,15 @@ def build_compilers(paths, settings):
     pool = multiprocessing.Pool()
 
     parser_worker = ParserWorker(settings)
-    return [x for xs in pool.map_async(parser_worker, paths).get(1e100) for x in xs]
+    path_info = []
+    return [x for xs in pool.map_async(parser_worker, path_info).get(1e100) for x in xs]
 
-def iter_template_deps(static_dir, src_path):
+
+def iter_template_deps(static_dir, src_path, static_url_prefix):
     """Yields static resources included as {{assetman.static_url()}} calls
     in the given source path, which should be a Tornado template.
+
+    TODO: need one of these for every supported template language?
     """
     src = open(src_path).read()
     for match in static_url_call_finder(src):
@@ -221,7 +235,7 @@ def iter_deps(static_dir, src_path, static_url_prefix):
         '.js': iter_js_deps,
         '.css': iter_css_deps,
         '.less': iter_css_deps,
-        '.scss': iter_css_deps,
+        '.scss': iter_scss_deps,
         '.html': iter_template_deps,
         }.get(os.path.splitext(src_path)[1])
     if dep_iter:
@@ -253,6 +267,32 @@ def iter_css_deps(static_dir, src_path, static_url_prefix):
     for dep in iter_static_deps(static_dir, src_path, static_url_prefix):
         yield dep
 
+def iter_scss_deps(src_path):
+    """Yields first-level dependencies from the given source path, which
+    should be a Sass file. Dependencies will either be more
+    Sass files or static image resources.
+    """
+    assert os.path.isfile(src_path), src_path
+    root = os.path.dirname(src_path)
+    src = open(src_path).read()
+
+    # First look for CSS/Less imports and recursively descend into them
+    for match in import_finder(src):
+        path = match.group(3)
+        if path.startswith('compass/'):
+            continue
+        # normpath will take care of '../' path components
+        new_root = os.path.normpath(os.path.join(root, os.path.dirname(path)))
+        full_path = os.path.join(new_root, os.path.basename(path))
+        assert os.path.isdir(new_root), new_root
+        assert os.path.isfile(full_path), full_path
+        yield full_path
+
+    # Then look for static assets (images, basically)
+    for dep in iter_static_deps(src_path):
+        yield dep
+
+
 def iter_js_deps(static_dir, src_path, static_url_prefix):
     """Yields first-level dependencies from the given source path, which
     should be a JavaScript file. Dependencies will be static image resources.
@@ -282,14 +322,19 @@ def _build_manifest_helper(static_dir, src_paths, static_url_prefix, manifest):
             manifest['assets'][src_path]['deps'].add(dep_path)
             _build_manifest_helper(static_dir, [dep_path], static_url_prefix, manifest)
 
-def build_manifest(paths, settings):
+
+def build_manifest(tornado_paths, django_paths, settings):
     """Recursively builds the dependency manifest for the given list of source
     paths.
     """
-    assert isinstance(paths, (list, tuple))
+    assert isinstance(tornado_paths, (list, tuple))
+    assert isinstance(django_paths, (list, tuple))
 
+    paths = list(set(tornado_paths).union(set(django_paths)))
     # First, parse each template to build a list of AssetCompiler instances
-    compilers = build_compilers(paths, settings)
+    path_info = [(x, 'tornado_template') for x in tornado_paths]
+    path_info += [(x, 'django_template') for x in django_paths]
+    compilers = build_compilers(path_info, settings)
 
     # Add each AssetCompiler's paths to our set of paths to search for deps
     paths = set(paths)
@@ -323,27 +368,30 @@ def build_manifest(paths, settings):
 def _create_settings(options):
     return Settings(compiled_asset_root=options.output_dir,
                     static_dir=options.static_dir,
+                    static_path_prefix=options.static_path_prefix,
                     static_url_prefix=options.static_url_path,
-                    compiled_manifest_path=options.compiled_manifest_path,
-                    template_dirs=options.template_dir,
+                    tornado_template_dirs=options.tornado_template_dirs,
+                    django_template_dirs=options.django_template_dirs,
                     template_extension=options.template_ext,
+                    test_needs_compile=options.test_needs_compile,
+                    skip_s3_upload=options.skip_s3_upload,
+                    force_recompile=options.force_recompile,
+                    skip_inline_images=options.skip_inline_images,
                     aws_username=options.aws_username,
                     aws_access_key=options.aws_access_key,
                     aws_secret_key=options.aws_secret_key,
                     s3_assets_bucket=options.s3_assets_bucket)
 
-def main(options):
-    settings = _create_settings(options) 
-
+def run(settings):
     if not re.match(r'^/.*?/$', settings.get('static_url_prefix')):
         logging.error('static_url_prefix setting must begin and end with a slash')
         sys.exit(1)
 
-    if not os.path.isdir(settings['compiled_asset_root']) and not options.test_needs_compile:
+    if not os.path.isdir(settings['compiled_asset_root']) and not settings['test_needs_compile']:
         logging.info('Creating output directory: %s', settings['compiled_asset_root'])
         os.makedirs(settings['compiled_asset_root'])
 
-    for d in settings['template_dirs']:
+    for d in settings['tornado_template_dirs'] + settings['django_template_dirs']:
         if not os.path.isdir(d):
             logging.error('Template directory not found: %r', d)
             return 1
@@ -353,22 +401,26 @@ def main(options):
         return 1
 
     # Find all the templates we need to parse
-    paths = list(iter_template_paths(settings['template_dirs'], settings['template_extension']))
+    tornado_paths = list(iter_template_paths(settings['tornado_template_dirs'], settings['template_extension']))
+    django_paths = list(iter_template_paths(settings['django_template_dirs'], settings['template_extension']))
+
+    if not tornado_paths and not django_paths:
+        logging.warn("No templates found")
 
     # Load the current manifest and generate a new one
-    cached_manifest = Manifest(settings).load_manifest()
+    cached_manifest = Manifest(settings).load()
     try:
-        current_manifest, compilers = build_manifest(paths, settings)
+        current_manifest, compilers = build_manifest(tornado_paths, django_paths, settings)
     except ParseError, e:
         src_path, msg = e.args
         logging.error('Error parsing template %s', src_path)
         logging.error(msg)
-        return 1
+        raise Exception
     except DependencyError, e:
         src_path, missing_deps = e.args
-        logging.error('Dependency error in %s!', src_path)
+        logging.error('Dependency error in source %s!', src_path)
         logging.error('Missing paths: %s', missing_deps)
-        return 1
+        raise Exception
 
     # Remove duplicates from our list of compilers. This de-duplication must
     # happen after the current manifest is built, because each non-unique
@@ -387,7 +439,7 @@ def main(options):
     def needs_compile(compiler):
         return compiler.needs_compile(cached_manifest, current_manifest)
 
-    if options.force:
+    if settings['force_recompile']:
         to_compile = compilers
     else:
         to_compile = filter(needs_compile, compilers)
@@ -409,13 +461,13 @@ def main(options):
 
     if to_compile or assets_out_of_sync:
         # If we're only testing whether a compile is needed, we're done
-        if options.test_needs_compile:
+        if settings['test_needs_compile']:
             return 1
 
         pool = multiprocessing.Pool()
         try:
             # See note above about bug in pool.map w/r/t KeyboardInterrupt.
-            _compile_worker = CompileWorker(options.skip_inline_images, current_manifest)
+            _compile_worker = CompileWorker(settings.get('skip_inline_images', False), current_manifest)
             pool.map_async(_compile_worker, to_compile).get(1e100)
         except CompileError, e:
             cmd, msg = e.args
@@ -423,19 +475,17 @@ def main(options):
             logging.error('Command: %s', ' '.join(cmd))
             logging.error('Error:   %s', msg)
             return 1
-        except KeyboardInterrupt:
-            logging.error('Interrupted by user, exiting...')
-            return 1
 
         #TODO: refactor to some chain of command for plugins
-        if not S3UploadThread.upload_assets(current_manifest, options.skip_upload):
-            logging.error('Error uploading assets')
-            return 1
+        if settings['aws_username']:
+            upload_assets_to_s3(current_manifest, settings, skip_s3_upload=settings['skip_s3_upload'])
 
-        current_manifest.write()
+        Manifest(settings).write(current_manifest)
 
     return 0
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.DEBUG)
     options, args = parser.parse_args()
-    sys.exit(main(options))
+    settings = _create_settings(options) 
+    sys.exit(run(settings))

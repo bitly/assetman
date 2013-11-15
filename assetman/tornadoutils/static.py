@@ -12,6 +12,7 @@ import subprocess
 import tornado.web
 import assetman
 
+
 class AssetmanMixin(object):
     def __init__(self, *args, **kwargs):
         super(AssetmanMixin, self).__init__(*args, **kwargs)
@@ -22,6 +23,7 @@ class AssetmanMixin(object):
     def render_string(self, template_name, **kwargs):
         return super(AssetmanMixin, self).render_string(template_name, 
             assetman=self.application.assetman_template_helper, **kwargs)
+
 
 
 class StaticFileHandler(tornado.web.RequestHandler):

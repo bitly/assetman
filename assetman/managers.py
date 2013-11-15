@@ -6,7 +6,7 @@ import functools
 import hashlib
 
 from assetman.settings import Settings
-import assetman.tools as tools
+from assetman.tools import get_shard_from_list, _utf8
 from assetman.manifest import Manifest
 
 class AssetManager(object):
@@ -14,13 +14,15 @@ class AssetManager(object):
     compilation for Tornado (or other?) templates.
 
     On the template side, assuming this `assetman` module is available in the
-    template context, use should be as easy as:
+    template context, use in Tornado should be as easy as:
 
         {% apply assetman.include_js %}
         js/utils.js
         js/lib.js
         js/main.js
         {% end %}
+
+    (Variations can/should be created for other frameworks.)
 
     With this block in place, each individual JavaScript file will be included
     in the resulting document in development. In production, a single,
@@ -45,7 +47,7 @@ class AssetManager(object):
         Any extra kwargs will be interpreted as extra HTML params to include
         on the rendered element.
         """
-        self.rel_urls = filter(None, tools._utf8(rel_url_text).split())
+        self.rel_urls = filter(None, _utf8(rel_url_text).split())
         self.local = local
         self.include_tag = include_tag
         self.src_path = src_path
@@ -90,13 +92,16 @@ class AssetManager(object):
             prefix = static_url_prefix or self.settings.get('static_url_prefix')
         elif self.local:
             prefix = local_cdn_url_prefix or self.settings.get('local_cdn_url_prefix')
+        else:
+            prefix = get_shard_from_list(self.settings['cdn_url_prefix'], os.path.basename(rel_url))
+
         return prefix.rstrip('/') + '/' + rel_url.lstrip('/')
 
     def render_attrs(self):
         """Returns this asset block's attrs as an HTML string. Includes a
         leading space.
         """
-        attrs = ' '.join('%s=%r' % (attr, tools._utf8(val))
+        attrs = ' '.join('%s=%r' % (attr, _utf8(val))
                          for attr, val in self.attrs.iteritems())
         return ' ' + attrs if attrs else ''
 
@@ -120,16 +125,16 @@ class AssetManager(object):
         static_url_prefix = static_url_prefix or self.settings.get("static_url_prefix")
         local_cdn_url_prefix = local_cdn_url_prefix or self.settings.get("local_cdn_url_prefix")
 
+        make_url = functools.partial(self.make_asset_url,
+                                     static_url_prefix=static_url_prefix,
+                                     local_cdn_url_prefix=local_cdn_url_prefix)
         if self.settings['enable_static_compilation']:
-            asset_url_partial = functools.partial(self.make_asset_url, 
-                static_url_prefix=static_url_prefix, 
-                local_cdn_url_prefix=local_cdn_url_prefix)
-
-            urls = map(asset_url_partial, self.rel_urls)
-
+            urls = map(make_url, self.rel_urls)
             return '\n'.join(map(self.render_asset, urls))
         else:
-            return self.render_asset(self.make_asset_url(self.get_compiled_name(), static_url_prefix, local_cdn_url_prefix))
+            compiled_name = self.get_compiled_name()
+            url = make_url(compiled_name)
+            return self.render_asset(url)
 
     @classmethod
     def include(cls, s=None, **kwargs):

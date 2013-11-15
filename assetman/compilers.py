@@ -9,17 +9,8 @@ import subprocess
 import functools
 import os
 import re
-import sys
 
-# Find our project root, assuming this file lives in ./scripts/. We add that
-# root dir to sys.path and use it as our working directory.
-project_root = os.path.realpath(
-    os.path.join(os.path.dirname(__file__), '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-os.chdir(project_root)
-
-import assetman
+import assetman.managers
 from assetman.tools import make_static_path, get_static_pattern, make_output_path
 
 def run_proc(cmd, stdin=None):
@@ -61,13 +52,29 @@ class AssetCompiler(object):
     def __init__(self, *args, **kwargs): 
         super(AssetCompiler, self).__init__(*args, **kwargs)
 
+    def required_setting_file(self, key):
+        """
+        Get the named setting from self.settings and give an informative
+        error if it's missing.
+
+        This is helpful because when run under multiprocessing, we get only
+        the exception name and message without a useful traceback,
+        so it's hard to know how/where to fix the problem.
+        http://bugs.python.org/issue13831
+        """
+        path = self.settings[key]
+        assert os.path.exists(path), "missing file %s (settings key %s)" % (path, key)
+        return path
+        
+
     def compile(self, manifest, **kwargs):
         """Compiles the assets in this Assetman block. Returns compiled source
         code as a string. The given manifest is used to version static paths
         in the compiled source code.
         """
-        logging.info('Compiling %s', self)
-        return self.do_compile(**kwargs)
+        logging.info("Compiling %s", self)
+        result =  self.do_compile(**kwargs)
+        return result
 
     def do_compile(self, **kwargs):
         raise NotImplementedError
@@ -95,9 +102,7 @@ class AssetCompiler(object):
         return True
 
     def get_current_content_hash(self, manifest):
-        """Gets the md5 hash for each of the files in this manager's list of
-        assets.
-        """
+        """Gets the md5 hash for each of the files in this manager's list of assets."""
         h = hashlib.md5()
         for path in self.get_paths():
             assert path in manifest['assets']
@@ -105,9 +110,7 @@ class AssetCompiler(object):
         return h.hexdigest()
 
     def get_paths(self):
-        """Returns a list of relative paths to the assets contained in this
-        manager.
-        """
+        """Returns a list of relative paths to the assets contained in this manager."""
         paths = map(functools.partial(make_static_path, self.settings['static_dir']), self.rel_urls)
         try:
             assert all(map(os.path.isfile, paths))
@@ -117,13 +120,11 @@ class AssetCompiler(object):
         return paths
 
     def get_compiled_path(self):
-        """Creates the output filename for the compiled assets of the given
-        manager.
-        """
-        return make_output_path(self.settings['static_dir'], self.get_compiled_name())
+        """Creates the output filename for the compiled assets of the given manager."""
+        return make_output_path(self.settings['compiled_asset_root'], self.get_compiled_name())
 
 
-class JSCompiler(AssetCompiler, assetman.JSManager):
+class JSCompiler(AssetCompiler, assetman.managers.JSManager):
 
     include_expr = 'include_js'
 
@@ -132,7 +133,7 @@ class JSCompiler(AssetCompiler, assetman.JSManager):
         let it go to work.
         """
         cmd = [
-            'java', '-jar', self.settings.get("closure_compiler"),
+            'java', '-Xss16m', '-jar', self.required_setting_file("closure_compiler"),
             '--compilation_level', 'SIMPLE_OPTIMIZATIONS',
             ]
         for path in self.get_paths():
@@ -140,7 +141,7 @@ class JSCompiler(AssetCompiler, assetman.JSManager):
         return run_proc(cmd)
 
 
-class CSSCompiler(AssetCompiler, assetman.CSSManager):
+class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
 
     include_expr = 'include_css'
 
@@ -159,7 +160,7 @@ class CSSCompiler(AssetCompiler, assetman.CSSManager):
         if not kwargs.get("skip_inline_images"):
             css_input = self.inline_images(css_input)
         cmd = [
-            'java', '-jar', self.settings.get("yui_compressor_path"),
+            'java', '-Xss16m', '-jar', self.required_setting_file("yui_compressor_path"),
             '--type', 'css', '--line-break', '160',
         ]
         return run_proc(cmd, stdin=css_input)
@@ -186,7 +187,7 @@ class CSSCompiler(AssetCompiler, assetman.CSSManager):
 
         def replacer(match):
             before, url_prefix, rel_path, after = match.groups()
-            path = make_static_path(rel_path)
+            path = make_static_path(self.settings['static_dir'], rel_path)
             assert os.path.isfile(path), (path, str(self))
             if os.stat(path).st_size > MAX_FILE_SIZE:
                 logging.debug('Not inlining %s (%.2fKB)', path, os.stat(path).st_size / KB)
@@ -210,7 +211,7 @@ class CSSCompiler(AssetCompiler, assetman.CSSManager):
         return result
 
 
-class LessCompiler(CSSCompiler, assetman.LessManager):
+class LessCompiler(CSSCompiler, assetman.managers.LessManager):
 
     include_expr = 'include_less'
 
@@ -223,20 +224,20 @@ class LessCompiler(CSSCompiler, assetman.LessManager):
         of the compiled CSS to the YUI compressor.
         """
         # First we "compile" the less files into CSS
-        lessc = self.settings.get("lessc_path")
+        lessc = self.required_setting_file("lessc_path")
         outputs = [run_proc([lessc, path]) for path in self.get_paths()]
-        return super(LessCompiler, self).do_compile('\n'.join(outputs))
+        return super(LessCompiler, self).do_compile(css_input='\n'.join(outputs))
 
 
-class SassCompiler(CSSCompiler, assetman.SassManager):
+class SassCompiler(CSSCompiler, assetman.managers.SassManager):
 
     include_expr = 'include_sass'
 
     def do_compile(self, **kwargs):
         cmd = [
-            self.settings.get("sass_compiler_path"),
-            '--compass', '--trace', '-l',
+            self.required_setting_file("sass_compiler_path"),
+            '--compass', '--trace', '--no-cache', '--stop-on-error', '-l'
         ] + self.rel_urls
         output = run_proc(cmd)
-        return super(SassCompiler, self).do_compile(output)
+        return super(SassCompiler, self).do_compile(css_input=output)
 
