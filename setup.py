@@ -16,5 +16,5 @@ setup(name='assetman',
                         'multiprocessing',
                        ],
 
-      scripts=['scripts/compile']
+      scripts=['scripts/assetman_compile']
 )
