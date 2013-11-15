@@ -45,13 +45,17 @@ def do_assetman(parser, token):
           path/to/asset.css
         {% endassetman %}
 
+        {% assetman include_sass %}
+          path/to/asset.less
+        {% endassetman %}
+
         {% assetman include_less %}
           path/to/asset.less
         {% endassetman %}
 
     """
     args = token.split_contents()
-    allowed_args = ('include_js', 'include_css', 'include_less')
+    allowed_args = ('include_js', 'include_css', 'include_sass', 'include_less')
     if not (len(args) == 2 and args[1] in allowed_args):
         raise template.TemplateSyntaxError(
             'assetman requires exactly 2 args and second must be one of %s'

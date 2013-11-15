@@ -57,7 +57,7 @@ def get_parser(template_path, template_type, settings):
     #TODO: dynamic import / return based on settings / config
     #avoids circular dep
     assert template_type in ["tornado_template", "django_template"]
-    if template_type == "tornado_type":
+    if template_type == "tornado_template":
         from assetman.parsers.tornado_parser import TornadoParser
         return TornadoParser(template_path, settings)
     else:

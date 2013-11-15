@@ -154,7 +154,7 @@ def empty_asset_entry():
         'deps': set()
     }
 
-def build_compilers(path_info, settings):
+def build_compilers(path_infos, settings):
     """Parse each template and return a list of AssetCompiler instances for
     any assetman.include_* blocks in each template.
     """
@@ -165,8 +165,9 @@ def build_compilers(path_info, settings):
     pool = multiprocessing.Pool()
 
     parser_worker = ParserWorker(settings)
-    path_info = []
-    return [x for xs in pool.map_async(parser_worker, path_info).get(1e100) for x in xs]
+    # a sync version for easier debugging (to see exceptions)
+    # return [parser_worker(x) for x in path_infos]
+    return [x for xs in pool.map_async(parser_worker, path_infos).get(1e100) for x in xs]
 
 
 def iter_template_deps(static_dir, src_path, static_url_prefix):
@@ -332,9 +333,9 @@ def build_manifest(tornado_paths, django_paths, settings):
 
     paths = list(set(tornado_paths).union(set(django_paths)))
     # First, parse each template to build a list of AssetCompiler instances
-    path_info = [(x, 'tornado_template') for x in tornado_paths]
-    path_info += [(x, 'django_template') for x in django_paths]
-    compilers = build_compilers(path_info, settings)
+    path_infos = [(x, 'tornado_template') for x in tornado_paths]
+    path_infos += [(x, 'django_template') for x in django_paths]
+    compilers = build_compilers(path_infos, settings)
 
     # Add each AssetCompiler's paths to our set of paths to search for deps
     paths = set(paths)
