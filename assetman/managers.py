@@ -129,7 +129,9 @@ class AssetManager(object):
             urls = map(make_url, self.rel_urls)
             return '\n'.join(map(self.render_asset, urls))
         else:
-            return self.render_asset(make_url(self.get_compiled_name()))
+            compiled_name = self.get_compiled_name()
+            url = make_url(compiled_name)
+            return self.render_asset(url)
 
     @classmethod
     def include(cls, s=None, **kwargs):

@@ -148,7 +148,7 @@ class JSCompiler(AssetCompiler, assetman.JSManager):
         let it go to work.
         """
         cmd = [
-            'java', '-jar', self.required_setting("closure_compiler"),
+            'java', '-Xss16m', '-jar', self.required_setting("closure_compiler"),
             '--compilation_level', 'SIMPLE_OPTIMIZATIONS',
             ]
         for path in self.get_paths():
@@ -175,7 +175,7 @@ class CSSCompiler(AssetCompiler, assetman.CSSManager):
         if not kwargs.get("skip_inline_images"):
             css_input = self.inline_images(css_input)
         cmd = [
-            'java', '-jar', self.required_setting("yui_compressor_path"),
+            'java', '-Xss16m', '-jar', self.required_setting("yui_compressor_path"),
             '--type', 'css', '--line-break', '160',
         ]
         return run_proc(cmd, stdin=css_input)
@@ -251,7 +251,7 @@ class SassCompiler(CSSCompiler, assetman.SassManager):
     def do_compile(self, **kwargs):
         cmd = [
             self.required_setting("sass_compiler_path"),
-            '--compass', '--trace', '-l',
+            '--compass', '--trace', '--no-cache', '--stop-on-error', '-l'
         ] + self.rel_urls
         output = run_proc(cmd)
         return super(SassCompiler, self).do_compile(css_input=output)

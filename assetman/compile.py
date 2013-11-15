@@ -226,7 +226,7 @@ def iter_deps(static_dir, src_path, static_url_prefix):
         '.js': iter_js_deps,
         '.css': iter_css_deps,
         '.less': iter_css_deps,
-        '.scss': iter_css_deps,
+        '.scss': iter_scss_deps,
         '.html': iter_template_deps,
         }.get(os.path.splitext(src_path)[1])
     if dep_iter:
@@ -257,6 +257,32 @@ def iter_css_deps(static_dir, src_path, static_url_prefix):
     # Then look for static assets (images, basically)
     for dep in iter_static_deps(static_dir, src_path, static_url_prefix):
         yield dep
+
+def iter_scss_deps(src_path):
+    """Yields first-level dependencies from the given source path, which
+    should be a Sass file. Dependencies will either be more
+    Sass files or static image resources.
+    """
+    assert os.path.isfile(src_path), src_path
+    root = os.path.dirname(src_path)
+    src = open(src_path).read()
+
+    # First look for CSS/Less imports and recursively descend into them
+    for match in import_finder(src):
+        path = match.group(3)
+        if path.startswith('compass/'):
+            continue
+        # normpath will take care of '../' path components
+        new_root = os.path.normpath(os.path.join(root, os.path.dirname(path)))
+        full_path = os.path.join(new_root, os.path.basename(path))
+        assert os.path.isdir(new_root), new_root
+        assert os.path.isfile(full_path), full_path
+        yield full_path
+
+    # Then look for static assets (images, basically)
+    for dep in iter_static_deps(src_path):
+        yield dep
+
 
 def iter_js_deps(static_dir, src_path, static_url_prefix):
     """Yields first-level dependencies from the given source path, which
