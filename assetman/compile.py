@@ -100,8 +100,9 @@ class ParserWorker(object):
         extracted from that template. Helper function to be called by each process
         in the process pool created by find_assetman_compilers, above.
         """
+        assert isinstance(template_info, (list, tuple))
         template_path, template_type = template_info
-        template = get_parser(template_path, self.settings, template_type)
+        template = get_parser(template_path, template_type, self.settings)
         return list(template.get_compilers())
 
 class CompileWorker(object):

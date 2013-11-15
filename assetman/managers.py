@@ -5,7 +5,6 @@ import logging
 import functools
 import hashlib
 
-from assetman.settings import Settings
 from assetman.tools import get_shard_from_list, _utf8
 from assetman.manifest import Manifest
 
@@ -53,7 +52,8 @@ class AssetManager(object):
         self.src_path = src_path
         self.attrs = attrs
         self._manifest = None
-        self.settings = settings or Settings()
+        assert settings
+        self.settings = settings
         logging.debug('%s URLs: %r', self.__class__.__name__, self.rel_urls)
 
     # Lazy-load the manifest attribute
@@ -89,7 +89,7 @@ class AssetManager(object):
     def make_asset_url(self, rel_url, static_url_prefix=None, local_cdn_url_prefix=None):
         """Builds a full URL based the given relative URL."""
         if self.settings['enable_static_compilation']:
-            prefix = static_url_prefix or self.settings.get('static_url_prefix')
+            prefix = static_url_prefix or self.settings['static_url_prefix']
         elif self.local:
             prefix = local_cdn_url_prefix or self.settings.get('local_cdn_url_prefix')
         else:

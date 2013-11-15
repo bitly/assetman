@@ -18,7 +18,7 @@ class AssetmanMixin(object):
         super(AssetmanMixin, self).__init__(*args, **kwargs)
         assert hasattr(self.application, 'assetman_template_helper')
         assert isinstance(self.application.assetman_template_helper, 
-            assetman.tornadoutils.helpers.TornadoTemplateHelper) 
+            assetman.tornadoutils.helpers.TemplateCommands) 
 
     def render_string(self, template_name, **kwargs):
         return super(AssetmanMixin, self).render_string(template_name, 
