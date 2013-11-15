@@ -38,9 +38,14 @@ def get_static_pattern(static_url_prefix):
     """
     return r'(%s)(.*?\.\w+)' % re.escape(static_url_prefix)
 
-def get_parser(template_path, settings=None):
+def get_parser(template_path, template_type, settings):
     """ Factory method to return appropriate parser class """
     #TODO: dynamic import / return based on settings / config
     #avoids circular dep
-    from assetman.parsers.tornado_parser import TornadoParser
-    return TornadoParser(template_path, settings)
+    assert template_type in ["tornado_template", "django_template"]
+    if template_type == "tornado_type":
+        from assetman.parsers.tornado_parser import TornadoParser
+        return TornadoParser(template_path, settings)
+    else:
+        from assetman.parsers.django_parser import DjangoParser
+        return DjangoParser(template_path, settings)

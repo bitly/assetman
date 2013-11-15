@@ -21,7 +21,11 @@ from assetman.settings import Settings
 parser = OptionParser(description='Compiles assets for AssetMan')
 
 parser.add_option(
-    '--template-dir', type="string", action='append', 
+    '--django_template_dirs', type="string", action='append', 
+    help='Directory to crawl looking for static assets to compile.')
+
+parser.add_option(
+    '--tornado_template_dirs', type="string", action='append', 
     help='Directory to crawl looking for static assets to compile.')
 
 parser.add_option(
@@ -92,12 +96,13 @@ class ParserWorker(object):
     def __init__(self, settings):
         self.settings = settings
 
-    def __call__(self, template_path):
+    def __call__(self, template_info):
         """Takes a template path and returns a list of AssetCompiler instances
         extracted from that template. Helper function to be called by each process
         in the process pool created by find_assetman_compilers, above.
         """
-        template = get_parser(template_path, self.settings)
+        template_path, template_type = template_info
+        template = get_parser(template_path, self.settings, template_type)
         return list(template.get_compilers())
 
 class CompileWorker(object):
@@ -149,7 +154,7 @@ def empty_asset_entry():
         'deps': set()
     }
 
-def build_compilers(paths, settings):
+def build_compilers(path_info, settings):
     """Parse each template and return a list of AssetCompiler instances for
     any assetman.include_* blocks in each template.
     """
@@ -160,7 +165,8 @@ def build_compilers(paths, settings):
     pool = multiprocessing.Pool()
 
     parser_worker = ParserWorker(settings)
-    return [x for xs in pool.map_async(parser_worker, paths).get(1e100) for x in xs]
+    path_info = []
+    return [x for xs in pool.map_async(parser_worker, path_info).get(1e100) for x in xs]
 
 
 def iter_template_deps(static_dir, src_path, static_url_prefix):
@@ -317,14 +323,18 @@ def _build_manifest_helper(static_dir, src_paths, static_url_prefix, manifest):
             _build_manifest_helper(static_dir, [dep_path], static_url_prefix, manifest)
 
 
-def build_manifest(paths, settings):
+def build_manifest(tornado_paths, django_paths, settings):
     """Recursively builds the dependency manifest for the given list of source
     paths.
     """
-    assert isinstance(paths, (list, tuple))
+    assert isinstance(tornado_paths, (list, tuple))
+    assert isinstance(django_paths, (list, tuple))
 
+    paths = list(set(tornado_paths).union(set(django_paths)))
     # First, parse each template to build a list of AssetCompiler instances
-    compilers = build_compilers(paths, settings)
+    path_info = [(x, 'tornado_template') for x in tornado_paths]
+    path_info += [(x, 'django_template') for x in django_paths]
+    compilers = build_compilers(path_info, settings)
 
     # Add each AssetCompiler's paths to our set of paths to search for deps
     paths = set(paths)
@@ -360,7 +370,8 @@ def _create_settings(options):
                     static_dir=options.static_dir,
                     static_path_prefix=options.static_path_prefix,
                     static_url_prefix=options.static_url_path,
-                    template_dirs=options.template_dir,
+                    tornado_template_dirs=options.tornado_template_dirs,
+                    django_template_dirs=options.django_template_dirs,
                     template_extension=options.template_ext,
                     test_needs_compile=options.test_needs_compile,
                     skip_s3_upload=options.skip_s3_upload,
@@ -380,7 +391,7 @@ def run(settings):
         logging.info('Creating output directory: %s', settings['compiled_asset_root'])
         os.makedirs(settings['compiled_asset_root'])
 
-    for d in settings['template_dirs']:
+    for d in settings['tornado_template_dirs'] + settings['django_template_dirs']:
         if not os.path.isdir(d):
             logging.error('Template directory not found: %r', d)
             return 1
@@ -390,15 +401,16 @@ def run(settings):
         return 1
 
     # Find all the templates we need to parse
-    paths = list(iter_template_paths(settings['template_dirs'], settings['template_extension']))
+    tornado_paths = list(iter_template_paths(settings['tornado_template_dirs'], settings['template_extension']))
+    django_paths = list(iter_template_paths(settings['django_template_dirs'], settings['template_extension']))
 
-    if not paths:
+    if not tornado_paths and not django_paths:
         logging.warn("No templates found")
 
     # Load the current manifest and generate a new one
     cached_manifest = Manifest(settings).load()
     try:
-        current_manifest, compilers = build_manifest(paths, settings)
+        current_manifest, compilers = build_manifest(tornado_paths, django_paths, settings)
     except ParseError, e:
         src_path, msg = e.args
         logging.error('Error parsing template %s', src_path)
