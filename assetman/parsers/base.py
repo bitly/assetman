@@ -1,10 +1,10 @@
 from __future__ import absolute_import, with_statement
 from assetman.settings import Settings
-from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler
+from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler, SassCompiler
 
 # Map from template-side assetman manager calls to the corresponding
 # compiler classes
-compiler_classes = [JSCompiler, LessCompiler, CSSCompiler]
+compiler_classes = [JSCompiler, LessCompiler, CSSCompiler, SassCompiler]
 compiler_map = dict((c.include_expr, c) for c in compiler_classes)
 
 

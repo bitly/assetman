@@ -9,17 +9,8 @@ import subprocess
 import functools
 import os
 import re
-import sys
 
-# Find our project root, assuming this file lives in ./scripts/. We add that
-# root dir to sys.path and use it as our working directory.
-project_root = os.path.realpath(
-    os.path.join(os.path.dirname(__file__), '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-os.chdir(project_root)
-
-import assetman
+import assetman.managers
 from assetman.tools import make_static_path, get_static_pattern, make_output_path
 
 def run_proc(cmd, stdin=None):
@@ -139,7 +130,7 @@ class AssetCompiler(object):
         return make_output_path(self.settings['static_dir'], self.get_compiled_name())
 
 
-class JSCompiler(AssetCompiler, assetman.JSManager):
+class JSCompiler(AssetCompiler, assetman.managers.JSManager):
 
     include_expr = 'include_js'
 
@@ -156,7 +147,7 @@ class JSCompiler(AssetCompiler, assetman.JSManager):
         return run_proc(cmd)
 
 
-class CSSCompiler(AssetCompiler, assetman.CSSManager):
+class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
 
     include_expr = 'include_css'
 
@@ -226,7 +217,7 @@ class CSSCompiler(AssetCompiler, assetman.CSSManager):
         return result
 
 
-class LessCompiler(CSSCompiler, assetman.LessManager):
+class LessCompiler(CSSCompiler, assetman.managers.LessManager):
 
     include_expr = 'include_less'
 
@@ -244,7 +235,7 @@ class LessCompiler(CSSCompiler, assetman.LessManager):
         return super(LessCompiler, self).do_compile(css_input='\n'.join(outputs))
 
 
-class SassCompiler(CSSCompiler, assetman.SassManager):
+class SassCompiler(CSSCompiler, assetman.managers.SassManager):
 
     include_expr = 'include_sass'
 

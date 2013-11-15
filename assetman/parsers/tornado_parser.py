@@ -3,7 +3,6 @@ from __future__ import absolute_import, with_statement
 import os
 import tornado.template
 from assetman.tools import include_expr_matcher
-from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler
 from assetman.parsers import base
 
 
@@ -12,7 +11,8 @@ class TornadoParser(base.TemplateParser):
 
     def load_template(self, path):
         """ loads a template from a full file path """
-        dirpath, template_file = os.path.split(path) 
+        dirpath, template_file = path.split(os.path.sep, 1)
+        # logging.debug('loading template %r %r', dirpath, template_file)
         loader = tornado.template.Loader(dirpath)
         self.template = loader.load(template_file)
 

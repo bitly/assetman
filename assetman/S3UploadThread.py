@@ -1,3 +1,5 @@
+#!/bin/python
+from __future__ import with_statement
 import re
 import os
 import sys
@@ -8,8 +10,9 @@ import email
 import Queue
 import mimetypes
 import logging
+import binascii
 from boto.s3.connection import S3Connection
-from assetman import make_output_path, make_static_path, get_static_pattern
+from assetman.tools import make_output_path, make_static_path, get_static_pattern
 
 class S3UploadThread(threading.Thread):
     """Thread that knows how to read asset file names from a queue and upload
@@ -23,13 +26,14 @@ class S3UploadThread(threading.Thread):
     at CloudFront instead of our local CDN proxy.
     """
 
-    def __init__(self, queue, errors, manifest):
+    def __init__(self, queue, errors, manifest, settings):
         threading.Thread.__init__(self)
         cx = S3Connection(settings.get('aws_access_key'), settings.get('aws_secret_key'))
         self.bucket = cx.get_bucket(settings.get('s3_assets_bucket'))
         self.queue = queue
         self.errors = errors
         self.manifest = manifest
+        self.settings = settings
 
     def run(self):
         while True:
@@ -69,7 +73,7 @@ class S3UploadThread(threading.Thread):
 
             # Next we will upload the same file with a prefixed key, to be
             # served by our "local CDN proxy".
-            key_prefix = settings.get('local_cdn_url_prefix').lstrip('/').rstrip('/')
+            key_prefix = self.settings.get('local_cdn_url_prefix').lstrip('/').rstrip('/')
             key = self.bucket.new_key(key_prefix + '/' + file_name)
             self.upload_file(key, file_data, headers, for_cdn=False)
 
@@ -87,14 +91,15 @@ class S3UploadThread(threading.Thread):
             if re.search(r'\.(css|js)$', key.name):
                 if for_cdn:
                     logging.info('Rewriting URLs => CDN: %s', key.name)
-                    replacement_prefix = settings.get('cdn_url_prefix')
+                    replacement_prefix = self.settings.get('cdn_url_prefix')
                 else:
                     logging.info('Rewriting URLs => local proxy: %s', key.name)
-                    replacement_prefix = settings.get('local_cdn_url_prefix')
+                    replacement_prefix = self.settings.get('local_cdn_url_prefix')
                 file_data = sub_static_version(
                     file_data,
                     self.manifest,
-                    replacement_prefix)
+                    replacement_prefix,
+                    self.settings.get('static_url_prefix'))
             key.set_contents_from_string(file_data, headers, replace=False)
             logging.info('Uploaded %s', key.name)
             logging.debug('Headers: %r', headers)
@@ -112,7 +117,7 @@ class S3UploadThread(threading.Thread):
         return 'public, max-age=%s' % (86400 * 365 * 10)
 
 
-def upload_assets(manifest, skip=False):
+def upload_assets(manifest, settings, skip=False):
     """Uploads any assets that are in the given manifest and in our compiled
     output dir but missing from our static assets bucket to that bucket on S3.
     """
@@ -149,14 +154,32 @@ def upload_assets(manifest, skip=False):
     queue = Queue.Queue()
     errors = []
     for i in xrange(5):
-        uploader = S3UploadThread(queue, errors, manifest)
+        uploader = S3UploadThread(queue, errors, manifest, settings)
         uploader.setDaemon(True)
         uploader.start()
     map(queue.put, to_upload)
     queue.join()
     return len(errors) == 0
 
-def sub_static_version(src, manifest, replacement_prefix):
+def get_shard_from_list(settings_list, shard_id):
+    assert isinstance(settings_list, (list, tuple)), "must be a list not %r" % settings_list
+    shard_id = _crc(shard_id)
+    bucket = shard_id % len(settings_list)
+    return settings_list[bucket]
+
+def _crc(key):
+    """crc32 hash a string"""
+    return binascii.crc32(_utf8(key)) & 0xffffffff
+
+def _utf8(s):
+    """encode a unicode string as utf-8"""
+    if isinstance(s, unicode):
+        return s.encode("utf-8")
+    assert isinstance(s, str), "_utf8 expected a str, not %r" % type(s)
+    return s
+
+
+def sub_static_version(src, manifest, replacement_prefix, static_url_prefix):
     """Adjusts any static URLs in the given source to point to a different
     location.
 
@@ -171,11 +194,11 @@ def sub_static_version(src, manifest, replacement_prefix):
         if path in manifest['assets']:
             versioned_path = manifest['assets'][path]['versioned_path']
             if isinstance(replacement_prefix, (list, tuple)):
-                prefix = settings.get_shard_from_list(replacement_prefix, versioned_path)
+                prefix = get_shard_from_list(replacement_prefix, versioned_path)
             else:
                 prefix = replacement_prefix
             return prefix.rstrip('/') + '/' + versioned_path.lstrip('/')
         logging.warn('Missing path %s in manifest, using %s', path, match.group(0))
         return match.group(0)
-    pattern = get_static_pattern(settings.get('static_url_prefix'))
+    pattern = get_static_pattern(static_url_prefix)
     return re.sub(pattern, replacer, src)

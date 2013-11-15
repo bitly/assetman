@@ -56,14 +56,9 @@ parser.add_option(
     '-i', '--skip-inline-images', action="store_true",
     help='Do not sub data URIs for small images in CSS.')
 
-#TODO: maybe make a /plugins directory and script that optionally adds this stuff
-parser.add_option(
-    '-u', '--skip-upload', action="store_true",
-    help='Do not upload anything to S3.')
-
 parser.add_option(
     '--aws_username', type="string", 
-    help="AWS username, required for uploading to s3")
+    help="AWS username, required for uploading to s3 (upload skipped if missing)")
 
 parser.add_option(
     '--aws_access_key', type="string",
@@ -356,22 +351,21 @@ def _create_settings(options):
     return Settings(compiled_asset_root=options.output_dir,
                     static_dir=options.static_dir,
                     static_url_prefix=options.static_url_path,
-                    compiled_manifest_path=options.compiled_manifest_path,
                     template_dirs=options.template_dir,
                     template_extension=options.template_ext,
+                    test_needs_compile=options.test_needs_compile,
+                    force=options.force,
                     aws_username=options.aws_username,
                     aws_access_key=options.aws_access_key,
                     aws_secret_key=options.aws_secret_key,
                     s3_assets_bucket=options.s3_assets_bucket)
 
-def main(options):
-    settings = _create_settings(options) 
-
+def run(settings):
     if not re.match(r'^/.*?/$', settings.get('static_url_prefix')):
         logging.error('static_url_prefix setting must begin and end with a slash')
         sys.exit(1)
 
-    if not os.path.isdir(settings['compiled_asset_root']) and not options.test_needs_compile:
+    if not os.path.isdir(settings['compiled_asset_root']) and not settings.test_needs_compile:
         logging.info('Creating output directory: %s', settings['compiled_asset_root'])
         os.makedirs(settings['compiled_asset_root'])
 
@@ -398,12 +392,12 @@ def main(options):
         src_path, msg = e.args
         logging.error('Error parsing template %s', src_path)
         logging.error(msg)
-        return 1
+        raise Exception
     except DependencyError, e:
         src_path, missing_deps = e.args
         logging.error('Dependency error in source %s!', src_path)
         logging.error('Missing paths: %s', missing_deps)
-        return 1
+        raise Exception
 
     # Remove duplicates from our list of compilers. This de-duplication must
     # happen after the current manifest is built, because each non-unique
@@ -422,7 +416,7 @@ def main(options):
     def needs_compile(compiler):
         return compiler.needs_compile(cached_manifest, current_manifest)
 
-    if options.force:
+    if settings.force:
         to_compile = compilers
     else:
         to_compile = filter(needs_compile, compilers)
@@ -458,14 +452,11 @@ def main(options):
             logging.error('Command: %s', ' '.join(cmd))
             logging.error('Error:   %s', msg)
             return 1
-        except KeyboardInterrupt:
-            logging.error('Interrupted by user, exiting...')
-            return 1
 
         #TODO: refactor to some chain of command for plugins
-        if not S3UploadThread.upload_assets(current_manifest, options.skip_upload):
-            logging.error('Error uploading assets')
-            return 1
+        if settings['aws_username']:
+            if not S3UploadThread.upload_assets(current_manifest, settings):
+                raise Exception('Error uploading assets')
 
         Manifest(settings).write(current_manifest)
 
@@ -474,4 +465,5 @@ def main(options):
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
     options, args = parser.parse_args()
-    sys.exit(main(options))
+    settings = _create_settings(options) 
+    sys.exit(run(settings))
