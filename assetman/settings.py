@@ -6,7 +6,7 @@ try:
 except ImportError:
     import simplejson as json
 
-settings = {   
+example_settings = {   
     # Assetman needs to be able to point at assets to be served by us and by a
     # CDN. We have to serve our own mobile assets in production because of
     # restrictions in offline app caching.
@@ -14,7 +14,7 @@ settings = {
     # Assetman needs to know how to point at assets in three different places:
     # the "normal" static URL (during dev), a "cdn proxy" URL on our own hosts
     # (for, e.g., mobile site or non-CDN fallback), and a set of cdn hosts.
-    "static_url_prefix": "/s/beta/",
+    "static_url_prefix": "/s/",
     "local_cdn_url_prefix": "/cdn/",
     "cdn_url_prefix": [
         '//1.example.net/',
@@ -30,7 +30,9 @@ settings = {
     # Where are static files found in the filesystem for this project?
     "static_dir": os.path.abspath(os.path.join(os.path.dirname(__file__), "static")),
     # And where are compiled static assets found?
-    "compiled_asset_root": "/data/hamburger_assets",
+    "compiled_asset_root": "/data/compiled_assets",
+}
+default_settings = {
     "closure_compiler":"/bin/closure-compiler.jar",
     "yui_compressor_path": "/bin/yuicompressor.jar",
     "sass_compiler": "/bin/sass",
@@ -46,6 +48,7 @@ class Settings(dict):
     """
     def __init__(self, configuration_file=None, *args, **kwargs):
         self._config_path = configuration_file
+        self.update(default_settings)
         self.update(dict(*args, **kwargs))
 
     @classmethod

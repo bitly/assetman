@@ -99,6 +99,7 @@ class S3UploadThread(threading.Thread):
                     file_data,
                     self.manifest,
                     replacement_prefix,
+                    self.settings['static_dir'],
                     self.settings.get('static_url_prefix'))
             key.set_contents_from_string(file_data, headers, replace=False)
             logging.info('Uploaded %s', key.name)
@@ -117,7 +118,7 @@ class S3UploadThread(threading.Thread):
         return 'public, max-age=%s' % (86400 * 365 * 10)
 
 
-def upload_assets(manifest, settings, skip=False):
+def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     """Uploads any assets that are in the given manifest and in our compiled
     output dir but missing from our static assets bucket to that bucket on S3.
     """
@@ -146,9 +147,9 @@ def upload_assets(manifest, settings, skip=False):
         to_upload.add((file_name, file_path))
 
     logging.info('Found %d assets to upload to S3', len(to_upload))
-    if skip:
-        logging.warn('NOTE: Skipping uploads to S3')
-        return True
+    if skip_s3_upload:
+        logging.info('Skipping asset upload to S3')
+        return
 
     # Upload assets to S3 using 5 threads
     queue = Queue.Queue()
@@ -159,7 +160,8 @@ def upload_assets(manifest, settings, skip=False):
         uploader.start()
     map(queue.put, to_upload)
     queue.join()
-    return len(errors) == 0
+    if errors:
+        raise Exception(errors)
 
 def get_shard_from_list(settings_list, shard_id):
     assert isinstance(settings_list, (list, tuple)), "must be a list not %r" % settings_list
@@ -179,7 +181,7 @@ def _utf8(s):
     return s
 
 
-def sub_static_version(src, manifest, replacement_prefix, static_url_prefix):
+def sub_static_version(src, manifest, replacement_prefix, static_dir, static_url_prefix):
     """Adjusts any static URLs in the given source to point to a different
     location.
 
@@ -190,7 +192,7 @@ def sub_static_version(src, manifest, replacement_prefix, static_url_prefix):
     """
     def replacer(match):
         prefix, rel_path = match.groups()
-        path = make_static_path(rel_path)
+        path = make_static_path(static_dir, rel_path)
         if path in manifest['assets']:
             versioned_path = manifest['assets'][path]['versioned_path']
             if isinstance(replacement_prefix, (list, tuple)):

@@ -36,7 +36,6 @@ class TornadoParser(base.TemplateParser):
         return isinstance(node, tornado.template._ApplyBlock) \
             and include_expr_matcher(node.method)
 
-
     def __iter_child_nodes(self, parent, pred):
         """Yields any child nodes of the given parent that match given predicate
         function.
@@ -48,12 +47,9 @@ class TornadoParser(base.TemplateParser):
             for grandchild in self.__iter_child_nodes(child, pred):
                 yield grandchild
 
-
-
     def __extract_text(self, parent):
         """Concatenates the value of each _Text node under the given parent.
         The parent must contain only _Text nodes.
         """
-
         is_text = lambda node: isinstance(node, tornado.template._Text)
         return ''.join(child.value for child in self.__iter_child_nodes(parent, is_text))

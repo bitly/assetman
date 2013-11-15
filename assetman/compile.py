@@ -14,7 +14,7 @@ from optparse import OptionParser
 from assetman.manifest import Manifest 
 from assetman.tools import iter_template_paths, get_static_pattern, make_static_path, get_parser
 from assetman.compilers import DependencyError, ParseError, CompileError
-from assetman.S3UploadThread import S3UploadThread
+from assetman.S3UploadThread import upload_assets_to_s3
 
 from assetman.settings import Settings
 
@@ -37,6 +37,10 @@ parser.add_option(
     help='Directory where compiled assets are to be placed.')
 
 parser.add_option(
+    '--static-path-prefix', type="string", default="",
+    help="Directory prefix to access static assets (matching url prefix)")
+
+parser.add_option(
     '--static-url-path', type="string", default="/",
     help="Static asset base url path")
 
@@ -49,7 +53,7 @@ parser.add_option(
     help='Check whether a compile is needed. Exits 1 if so.')
 
 parser.add_option(
-    '-f', '--force', action="store_true",
+    '-f', '--force-recompile', action="store_true",
     help='Force a recompile of everything.')
 
 parser.add_option(
@@ -57,8 +61,12 @@ parser.add_option(
     help='Do not sub data URIs for small images in CSS.')
 
 parser.add_option(
+    '--skip-s3-upload', action="store_true",
+    help='Skip uploading anything to s3')
+
+parser.add_option(
     '--aws_username', type="string", 
-    help="AWS username, required for uploading to s3 (upload skipped if missing)")
+    help="AWS username, required for uploading to s3 (no upload if ommited)")
 
 parser.add_option(
     '--aws_access_key', type="string",
@@ -350,11 +358,14 @@ def build_manifest(paths, settings):
 def _create_settings(options):
     return Settings(compiled_asset_root=options.output_dir,
                     static_dir=options.static_dir,
+                    static_path_prefix=options.static_path_prefix,
                     static_url_prefix=options.static_url_path,
                     template_dirs=options.template_dir,
                     template_extension=options.template_ext,
                     test_needs_compile=options.test_needs_compile,
-                    force=options.force,
+                    skip_s3_upload=options.skip_s3_upload,
+                    force_recompile=options.force_recompile,
+                    skip_inline_images=options.skip_inline_images,
                     aws_username=options.aws_username,
                     aws_access_key=options.aws_access_key,
                     aws_secret_key=options.aws_secret_key,
@@ -365,7 +376,7 @@ def run(settings):
         logging.error('static_url_prefix setting must begin and end with a slash')
         sys.exit(1)
 
-    if not os.path.isdir(settings['compiled_asset_root']) and not settings.test_needs_compile:
+    if not os.path.isdir(settings['compiled_asset_root']) and not settings['test_needs_compile']:
         logging.info('Creating output directory: %s', settings['compiled_asset_root'])
         os.makedirs(settings['compiled_asset_root'])
 
@@ -416,7 +427,7 @@ def run(settings):
     def needs_compile(compiler):
         return compiler.needs_compile(cached_manifest, current_manifest)
 
-    if settings.force:
+    if settings['force_recompile']:
         to_compile = compilers
     else:
         to_compile = filter(needs_compile, compilers)
@@ -438,13 +449,13 @@ def run(settings):
 
     if to_compile or assets_out_of_sync:
         # If we're only testing whether a compile is needed, we're done
-        if options.test_needs_compile:
+        if settings['test_needs_compile']:
             return 1
 
         pool = multiprocessing.Pool()
         try:
             # See note above about bug in pool.map w/r/t KeyboardInterrupt.
-            _compile_worker = CompileWorker(options.skip_inline_images, current_manifest)
+            _compile_worker = CompileWorker(settings.get('skip_inline_images', False), current_manifest)
             pool.map_async(_compile_worker, to_compile).get(1e100)
         except CompileError, e:
             cmd, msg = e.args
@@ -455,8 +466,7 @@ def run(settings):
 
         #TODO: refactor to some chain of command for plugins
         if settings['aws_username']:
-            if not S3UploadThread.upload_assets(current_manifest, settings):
-                raise Exception('Error uploading assets')
+            upload_assets_to_s3(current_manifest, settings, skip_s3_upload=settings['skip_s3_upload'])
 
         Manifest(settings).write(current_manifest)
 
