@@ -130,7 +130,7 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     # assetman.include_* blocks in each template)
     for depspec in manifest['blocks'].itervalues():
         file_name = depspec['versioned_path']
-        file_path = make_output_path(file_name)
+        file_path = make_output_path(settings['compiled_asset_root'], file_name)
         assert os.path.isfile(file_path), 'Missing compiled asset %s' % file_path
         to_upload.add((file_name, file_path))
 

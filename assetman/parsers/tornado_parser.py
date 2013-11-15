@@ -15,6 +15,7 @@ class TornadoParser(base.TemplateParser):
         # logging.debug('loading template %r %r', dirpath, template_file)
         loader = tornado.template.Loader(dirpath)
         self.template = loader.load(template_file)
+        self.path = path
 
     def get_compilers(self):
         """Finds any {% apply assetman.foo %} blocks in the given compiled
@@ -27,7 +28,7 @@ class TornadoParser(base.TemplateParser):
             include_expr = include_expr_matcher(asset_block.method).group(1)
             assert include_expr in base.compiler_map, 'No compiler for %s' % asset_block.method
             compiler_cls = base.compiler_map[include_expr]
-            yield compiler_cls(self.__extract_text(asset_block), self.template_path, settings=self.settings) 
+            yield compiler_cls(self.__extract_text(asset_block), self.template_path, settings=self.settings, src_path=self.path) 
 
     def __is_assetman_block(self, node):
         """Returns a bool indicating whether the given template node is an

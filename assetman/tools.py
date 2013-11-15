@@ -26,8 +26,8 @@ def iter_template_paths(template_dirs, template_ext):
 def make_static_path(static_dir, p):
     return os.path.join(static_dir, p)
 
-def make_output_path(static_dir, p):
-    return os.path.join(static_dir, p)
+def make_output_path(compiled_asset_root, p):
+    return os.path.join(compiled_asset_root, p)
 
 def get_static_pattern(static_url_prefix):
     """Builds a regular expression we can use to find static asset references

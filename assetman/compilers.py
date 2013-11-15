@@ -102,9 +102,7 @@ class AssetCompiler(object):
         return True
 
     def get_current_content_hash(self, manifest):
-        """Gets the md5 hash for each of the files in this manager's list of
-        assets.
-        """
+        """Gets the md5 hash for each of the files in this manager's list of assets."""
         h = hashlib.md5()
         for path in self.get_paths():
             assert path in manifest['assets']
@@ -112,9 +110,7 @@ class AssetCompiler(object):
         return h.hexdigest()
 
     def get_paths(self):
-        """Returns a list of relative paths to the assets contained in this
-        manager.
-        """
+        """Returns a list of relative paths to the assets contained in this manager."""
         paths = map(functools.partial(make_static_path, self.settings['static_dir']), self.rel_urls)
         try:
             assert all(map(os.path.isfile, paths))
@@ -124,10 +120,8 @@ class AssetCompiler(object):
         return paths
 
     def get_compiled_path(self):
-        """Creates the output filename for the compiled assets of the given
-        manager.
-        """
-        return make_output_path(self.settings['static_dir'], self.get_compiled_name())
+        """Creates the output filename for the compiled assets of the given manager."""
+        return make_output_path(self.settings['compiled_asset_root'], self.get_compiled_name())
 
 
 class JSCompiler(AssetCompiler, assetman.managers.JSManager):
