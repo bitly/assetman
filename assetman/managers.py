@@ -155,10 +155,13 @@ class AssetManager(object):
             return functools.partial(cls.include, **kwargs)
         return cls(s, **kwargs).render()
 
-    def static_url(self, url, static_url_prefix=None, local_cdn_url_prefix=None):
+    def static_url(self, url, static_url_prefix=None, local_cdn_url_prefix=None, local=None):
         """A shortcut for ensuring that the given URL is versioned in
         production.
         """
+        if local is not None:
+            self.local = local
+            
         if self.settings['enable_static_compilation']:
             return self.make_asset_url(url, static_url_prefix, local_cdn_url_prefix)
         else:
