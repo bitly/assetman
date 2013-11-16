@@ -10,9 +10,13 @@ class TestSettings(unittest.TestCase):
         settings_stub = {
             'testkey1': "testvalue1",
             'testkey2': "testvalue2",
+            "lessc_path" : "asdf",
+            "sass_compiler": "asdf",
+            "yui_compressor_path": "asdf",
+            "closure_compiler": "asdf"
         }
 
-        savepath = "./test_settings"
+        savepath = "./assetman/tests/test_settings"
 
         with open(savepath, 'w') as saved_file:
             saved_file.write(json.dumps(settings_stub))
@@ -28,7 +32,7 @@ class TestSettings(unittest.TestCase):
         s['testkey1'] = "testvalue1"
         s['testkey2'] = "testvalue2"
 
-        savepath = "./test_settings"
+        savepath = "./assetman/tests/test_settings"
         s.save(path=savepath)
 
         try:

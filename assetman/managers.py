@@ -84,7 +84,7 @@ class AssetManager(object):
         which is composed of its version hash and a filed extension.
         """
         name_hash = self.get_hash()
-        return self.manifest['blocks'][name_hash]['versioned_path']
+        return self.manifest.blocks[name_hash]['versioned_path']
 
     def make_asset_url(self, rel_url, static_url_prefix=None, local_cdn_url_prefix=None):
         """Builds a full URL based the given relative URL."""
@@ -166,8 +166,8 @@ class AssetManager(object):
             return self.make_asset_url(url, static_url_prefix, local_cdn_url_prefix)
         else:
             path = os.path.join(static_url_prefix or self.settings.get('static_path_prefix'), url)
-            assert path in self.manifest['assets'], path
-            return self.make_asset_url(self.manifest['assets'][path]['versioned_path'], static_url_prefix, local_cdn_url_prefix)
+            assert path in self.manifest.assets, path
+            return self.make_asset_url(self.manifest.assets[path]['versioned_path'], static_url_prefix, local_cdn_url_prefix)
 
     def __str__(self):
         return '<%s src:%s assets:%s>' % (

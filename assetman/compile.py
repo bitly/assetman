@@ -11,11 +11,14 @@ import hashlib
 from optparse import OptionParser
 
 from assetman.manifest import Manifest 
-from assetman.tools import iter_template_paths, get_static_pattern, make_static_path, get_parser
+from assetman.tools import iter_template_paths, get_static_pattern, make_relative_static_path, make_absolute_static_path, get_parser
 from assetman.compilers import DependencyError, ParseError, CompileError
 from assetman.S3UploadThread import upload_assets_to_s3
 
 from assetman.settings import Settings
+
+class NeedsCompilation(Exception):
+    pass
 
 parser = OptionParser(description='Compiles assets for AssetMan')
 
@@ -116,8 +119,7 @@ class CompileWorker(object):
 
     def __call__(self, compiler):
         with open(compiler.get_compiled_path(), 'w') as outfile:
-            outfile.write(compiler.compile(self.manifest,
-                                           skip_inline_images=self.skip_inline_images))
+            outfile.write(compiler.compile(skip_inline_images=self.skip_inline_images))
 
 
 ##############################################################################
@@ -166,8 +168,10 @@ def build_compilers(path_infos, settings):
 
     parser_worker = ParserWorker(settings)
     # a sync version for easier debugging (to see exceptions)
-    # return [parser_worker(x) for x in path_infos]
-    return [x for xs in pool.map_async(parser_worker, path_infos).get(1e100) for x in xs]
+    compiler_lists = [parser_worker(x) for x in path_infos]
+    output = [item for sublist in compiler_lists for item in sublist]
+    return output
+    # return [x for xs in pool.map_async(parser_worker, path_infos).get(1e100) for x in xs]
 
 
 def iter_template_deps(static_dir, src_path, static_url_prefix):
@@ -184,7 +188,7 @@ def iter_template_deps(static_dir, src_path, static_url_prefix):
             msg = 'Vars not allowed in static_url calls: %s' % match.group(0)
             raise ParseError(src_path, msg)
         else:
-            dep_path = make_static_path(static_dir, arg.strip(quotes))
+            dep_path = make_absolute_static_path(static_dir, arg.strip(quotes))
             if os.path.isfile(dep_path):
                 yield dep_path
             else:
@@ -200,34 +204,19 @@ def version_dependency(path, manifest):
     So, the version of a path is based on the hash of its own file contents as
     well as those of each of its dependencies.
     """
-    assert path in manifest['assets'], path
-    assert os.path.isfile(path), path
-    if manifest['assets'][path]['version']:
-        return manifest['assets'][path]['version']
+    assert path in manifest.assets, path
+    if manifest.assets[path]['version']:
+        return manifest.assets[path]['version']
     h = hashlib.md5()
-    h.update(get_file_hash(path))
-    for dep_path in manifest['assets'][path]['deps']:
+    h.update(get_file_hash(make_absolute_static_path(manifest.settings['static_dir'], path)))
+    for dep_path in manifest.assets[path]['deps']:
         h.update(version_dependency(dep_path, manifest))
     version = h.hexdigest()
     _, ext = os.path.splitext(path)
-    manifest['assets'][path]['version'] = version
-    manifest['assets'][path]['versioned_path'] = version + ext
-    return manifest['assets'][path]['version']
+    manifest.assets[path]['version'] = version
+    manifest.assets[path]['versioned_path'] = version + ext
+    return manifest.assets[path]['version']
 
-def normalize_manifest(manifest):
-    """Normalizes and sanity-checks the given dependency manifest by first
-    ensuring that all deps are expressed as lists instead of sets (as they are
-    when the manifest is built) and then by ensuring that every dependency has
-    its own entry and version in the top level of the manifest.
-    """
-    for parent, depspec in manifest['assets'].iteritems():
-        depspec['deps'] = list(depspec['deps'])
-        for dep in depspec['deps']:
-            assert dep in manifest['assets'], (parent, dep)
-            assert depspec['version'], (parent, dep)
-    for name_hash, depspec in manifest['blocks'].iteritems():
-        assert depspec['version'], name_hash
-    return manifest
 
 def iter_deps(static_dir, src_path, static_url_prefix):
     """Yields first-level dependencies from the given source path."""
@@ -305,7 +294,7 @@ def iter_static_deps(static_dir, src_path, static_url_prefix):
     """
     assert os.path.isfile(src_path), src_path
     for match in static_finder(open(src_path).read(), static_url_prefix):
-        dep_path = make_static_path(static_dir, match.group(2))
+        dep_path = make_absolute_static_path(static_dir, match.group(2))
         if os.path.isfile(dep_path):
             yield dep_path
         else:
@@ -314,13 +303,15 @@ def iter_static_deps(static_dir, src_path, static_url_prefix):
 
 def _build_manifest_helper(static_dir, src_paths, static_url_prefix, manifest):
     assert isinstance(src_paths, (list, tuple))
-    assert isinstance(manifest, dict)
-    assert 'assets' in manifest and isinstance(manifest['assets'], dict)
     for src_path in src_paths:
         # Make sure every source path at least has the skeleton entry
-        manifest['assets'].setdefault(src_path, empty_asset_entry())
+        rel_src_path = make_relative_static_path(static_dir, src_path)
+        logging.info('_build_manifest_helper %s (crrent %s)', src_path, manifest.assets.get(rel_src_path))
+        manifest.assets.setdefault(rel_src_path, empty_asset_entry())
         for dep_path in iter_deps(static_dir, src_path, static_url_prefix):
-            manifest['assets'][src_path]['deps'].add(dep_path)
+            logging.info('%s > dependency %s', src_path, dep_path)
+            rel_path = make_relative_static_path(static_dir, dep_path)
+            manifest.assets[rel_src_path]['deps'].add(rel_path)
             _build_manifest_helper(static_dir, [dep_path], static_url_prefix, manifest)
 
 
@@ -340,26 +331,29 @@ def build_manifest(tornado_paths, django_paths, settings):
     # Add each AssetCompiler's paths to our set of paths to search for deps
     paths = set(paths)
     for compiler in compilers:
-        paths.update(compiler.get_paths())
+        new_paths = compiler.get_paths()
+        if settings.get('verbose'):
+            print compiler, new_paths
+        paths.update(new_paths)
     paths = list(paths)
 
     # Start building the new manifest
-    manifest = Manifest(settings).make_empty_manifest()
+    manifest = Manifest(settings)
     _build_manifest_helper(settings['static_dir'], paths, settings['static_url_prefix'], manifest)
-    assert all(path in manifest['assets'] for path in paths)
+    assert all(make_relative_static_path(settings['static_dir'], path) in manifest.assets for path in paths)
 
     # Next, calculate the version hash for each entry in the manifest
-    for src_path in manifest['assets']:
+    for src_path in manifest.assets:
         version_dependency(src_path, manifest)
 
     # Normalize and validate the manifest
-    normalize_manifest(manifest)
+    manifest.normalize()
 
     # Update the 'blocks' section of the manifest for each asset block
     for compiler in compilers:
         name_hash = compiler.get_hash()
         content_hash = compiler.get_current_content_hash(manifest)
-        manifest['blocks'][name_hash] = {
+        manifest.blocks[name_hash] = {
             'version': content_hash,
             'versioned_path': content_hash + '.' + compiler.get_ext(),
         }
@@ -381,6 +375,7 @@ def _create_settings(options):
                     aws_username=options.aws_username,
                     aws_access_key=options.aws_access_key,
                     aws_secret_key=options.aws_secret_key,
+                    verbose=False,
                     s3_assets_bucket=options.s3_assets_bucket)
 
 def run(settings):
@@ -402,6 +397,7 @@ def run(settings):
     tornado_paths = list(iter_template_paths(settings['tornado_template_dirs'], settings['template_extension']))
     django_paths = list(iter_template_paths(settings['django_template_dirs'], settings['template_extension']))
 
+    logging.debug('found %d tornado and %d django template paths', len(tornado_paths), len(django_paths))
     if not tornado_paths and not django_paths:
         logging.warn("No templates found")
 
@@ -442,25 +438,10 @@ def run(settings):
     else:
         to_compile = filter(needs_compile, compilers)
 
-    # Figure out if any static assets referenced in the new manifest are
-    # missing from the cached manifest.
-    def assets_in_sync(asset):
-        if asset not in cached_manifest['assets']:
-            logging.warn('Static asset %s not in cached manifest', asset)
-            return False
-        if cached_manifest['assets'][asset]['version'] != current_manifest['assets'][asset]['version']:
-            logging.warn('Static asset %s version mismatch', asset)
-            return False
-        return True
-
-    assets_out_of_sync = not all(map(assets_in_sync, current_manifest['assets']))
-    if assets_out_of_sync:
-        logging.warn('Static assets out of sync')
-
-    if to_compile or assets_out_of_sync:
+    if to_compile or cached_manifest.needs_recompile(current_manifest):
         # If we're only testing whether a compile is needed, we're done
         if settings['test_needs_compile']:
-            return 1
+            raise NeedsCompilation()
 
         pool = multiprocessing.Pool()
         try:
@@ -478,7 +459,11 @@ def run(settings):
         if settings['aws_username']:
             upload_assets_to_s3(current_manifest, settings, skip_s3_upload=settings['skip_s3_upload'])
 
-        Manifest(settings).write(current_manifest)
+        if settings.get('merge_manifest_updates', True):
+            cached_manifest.union(current_manifest)
+        else:
+            cached_manifest = current_manifest
+        cached_manifest.write(settings=settings)
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)

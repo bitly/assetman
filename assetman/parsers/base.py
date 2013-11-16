@@ -23,7 +23,7 @@ class TemplateParser(object):
         This method must be defined to load template-language specific loading
         mechanism on init.
         """
-        pass
+        raise NotImplementedError
 
     def get_compilers(self):
         """

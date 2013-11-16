@@ -30,25 +30,23 @@ class TestManifest(unittest.TestCase):
         assert "tests/manifest.json" in path
 
     def test_can_load_manifest_from_asset_path(self):
-        manifest = Manifest()
-        loaded_manifest = manifest.load(self.TEST_MANIFEST_PATH)
-        assert loaded_manifest
-        assert loaded_manifest['blocks'].keys()
+        manifest = Manifest().load(self.TEST_MANIFEST_PATH)
+        assert manifest
+        assert manifest.blocks.keys()
 
     def test_can_load_manifest_from_settings(self):
         settings = Settings(compiled_asset_root=self.TEST_MANIFEST_PATH)
 
-        manifest = Manifest(settings)
-        loaded_manifest = manifest.load()
-        assert loaded_manifest
-        assert loaded_manifest['blocks'].keys()
+        manifest = Manifest(settings).load()
+        assert manifest
+        assert manifest.blocks.keys()
 
     def test_can_write_manifest_to_path(self):
         manifest = Manifest()
         manifest.load(compiled_asset_path=self.TEST_MANIFEST_PATH)
 
         #spoof a field update for now
-        manifest._manifest['test_field'] = "hello"
+        manifest.assets['test_field'] = "hello"
 
         manifest.write(compiled_asset_path=self.TEST_MANIFEST_PATH)
 

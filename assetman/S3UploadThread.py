@@ -11,7 +11,7 @@ import Queue
 import mimetypes
 import logging
 from boto.s3.connection import S3Connection
-from assetman.tools import make_output_path, make_static_path, get_static_pattern, get_shard_from_list
+from assetman.tools import make_output_path, make_absolute_static_path, make_relative_static_path, get_static_pattern, get_shard_from_list
 
 class S3UploadThread(threading.Thread):
     """Thread that knows how to read asset file names from a queue and upload
@@ -127,7 +127,7 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
 
     # We know we want to upload each asset block (these correspond to the
     # assetman.include_* blocks in each template)
-    for depspec in manifest['blocks'].itervalues():
+    for depspec in manifest.blocks.itervalues():
         file_name = depspec['versioned_path']
         file_path = make_output_path(settings['compiled_asset_root'], file_name)
         assert os.path.isfile(file_path), 'Missing compiled asset %s' % file_path
@@ -138,16 +138,17 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     # but we'll need to filter out other entries in the complete 'assets'
     # block of the manifest.
     should_skip = re.compile(r'\.(scss|less|css|js|html)$', re.I).search
-    for file_path, depspec in manifest['assets'].iteritems():
+    for rel_path, depspec in manifest.assets.iteritems():
         if should_skip(file_path):
             continue
+        file_path = make_absolute_static_path(settings['static_dir'], rel_path)
         assert os.path.isfile(file_path), 'Missing static asset %s' % file_path
         file_name = depspec['versioned_path']
         to_upload.add((file_name, file_path))
 
     logging.info('Found %d assets to upload to S3', len(to_upload))
     if skip_s3_upload:
-        logging.info('Skipping asset upload to S3')
+        logging.info('Skipping asset upload to S3 %s', to_upload)
         return
 
     # Upload assets to S3 using 5 threads
@@ -175,9 +176,9 @@ def sub_static_version(src, manifest, replacement_prefix, static_dir, static_url
     """
     def replacer(match):
         prefix, rel_path = match.groups()
-        path = make_static_path(static_dir, rel_path)
-        if path in manifest['assets']:
-            versioned_path = manifest['assets'][path]['versioned_path']
+        path = make_relative_static_path(static_dir, rel_path)
+        if path in manifest.assets:
+            versioned_path = manifest.assets[path]['versioned_path']
             if isinstance(replacement_prefix, (list, tuple)):
                 prefix = get_shard_from_list(replacement_prefix, versioned_path)
             else:

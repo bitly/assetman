@@ -8,10 +8,17 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'assetman.tests.django_test_settings'
 import django.template
 from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler
 from assetman.parsers.django_parser import DjangoParser
+import assetman.tools
+from assetman.settings import Settings
 
 class TestDjangoTemplateParser(unittest.TestCase):
 
-    TEST_TEMPLATE_PATH = 'django_templates/django_test_template.html'
+    TEST_TEMPLATE_PATH = 'django_test_template.html'
+
+    def test_get_parser_returns_django_template_parser(self):
+        settings = Settings(static_dir="assetman/tests/")
+        parser = assetman.tools.get_parser(self.TEST_TEMPLATE_PATH, 'django_template', settings)
+        assert parser is not None
 
     def test_loads_template_from_path(self):
         parser = DjangoParser(self.TEST_TEMPLATE_PATH) 

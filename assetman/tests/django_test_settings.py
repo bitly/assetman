@@ -8,7 +8,7 @@ INSTALLED_APPS = [
 ]
 
 TEMPLATE_DIRS = [
-    HERE,
+    os.path.join(HERE,"django_templates")
 ]
 
 ASSETMAN_SETTINGS = {
@@ -17,3 +17,20 @@ ASSETMAN_SETTINGS = {
     'local_cdn_url_prefix': 'CDN',
     'compiled_asset_root': '/tmp',
 }
+
+# Logging configuration.
+# See http://docs.djangoproject.com/en/dev/topics/logging for
+# more details on how to customize your logging configuration.
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {
+        'django': {
+            'handlers': [],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+

@@ -11,7 +11,7 @@ import os
 import re
 
 import assetman.managers
-from assetman.tools import make_static_path, get_static_pattern, make_output_path
+from assetman.tools import make_absolute_static_path, make_relative_static_path, get_static_pattern, make_output_path
 
 def run_proc(cmd, stdin=None):
     """Runs the given cmd as a subprocess. If the exit code is non-zero, calls
@@ -67,11 +67,8 @@ class AssetCompiler(object):
         return path
         
 
-    def compile(self, manifest, **kwargs):
-        """Compiles the assets in this Assetman block. Returns compiled source
-        code as a string. The given manifest is used to version static paths
-        in the compiled source code.
-        """
+    def compile(self, **kwargs):
+        """Compiles the assets in this Assetman block. Returns compiled source code as a string."""
         logging.info("Compiling %s", self)
         result =  self.do_compile(**kwargs)
         return result
@@ -85,10 +82,10 @@ class AssetCompiler(object):
         on disk.
         """
         name_hash = self.get_hash()
-        assert name_hash in current_manifest['blocks'], self
-        content_hash = current_manifest['blocks'][name_hash]['version']
-        if name_hash in cached_manifest['blocks']:
-            if cached_manifest['blocks'][name_hash]['version'] == content_hash:
+        assert name_hash in current_manifest.blocks, self
+        content_hash = current_manifest.blocks[name_hash]['version']
+        if name_hash in cached_manifest.blocks:
+            if cached_manifest.blocks[name_hash]['version'] == content_hash:
                 compiled_path = self.get_compiled_path()
                 if not os.path.exists(compiled_path):
                     logging.warn('Missing compiled asset %s from %s',
@@ -98,20 +95,26 @@ class AssetCompiler(object):
             else:
                 logging.warn('Contents of %s changed', self)
         else:
-            logging.warn('New/unknown hash %s from %s', name_hash, self)
+            compiled_path = self.get_compiled_path()
+            if not os.path.exists(compiled_path):
+                logging.warn('New/unknown hash %s from %s', name_hash, self)
+            else:
+                logging.info('new hash %s from %s but already exists on file %s', name_hash, self, compiled_path)
+                return False
         return True
 
     def get_current_content_hash(self, manifest):
         """Gets the md5 hash for each of the files in this manager's list of assets."""
         h = hashlib.md5()
         for path in self.get_paths():
-            assert path in manifest['assets']
-            h.update(manifest['assets'][path]['version'])
+            relative_path = make_relative_static_path(self.settings['static_dir'], path)
+            assert relative_path in manifest.assets, relative_path
+            h.update(manifest.assets[relative_path]['version'])
         return h.hexdigest()
 
     def get_paths(self):
-        """Returns a list of relative paths to the assets contained in this manager."""
-        paths = map(functools.partial(make_static_path, self.settings['static_dir']), self.rel_urls)
+        """Returns a list of absolute paths to the assets contained in this manager."""
+        paths = map(functools.partial(make_absolute_static_path, self.settings['static_dir']), self.rel_urls)
         try:
             assert all(map(os.path.isfile, paths))
         except AssertionError:
@@ -187,7 +190,7 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
 
         def replacer(match):
             before, url_prefix, rel_path, after = match.groups()
-            path = make_static_path(self.settings['static_dir'], rel_path)
+            path = make_absolute_static_path(self.settings['static_dir'], rel_path)
             assert os.path.isfile(path), (path, str(self))
             if os.stat(path).st_size > MAX_FILE_SIZE:
                 logging.debug('Not inlining %s (%.2fKB)', path, os.stat(path).st_size / KB)
@@ -206,7 +209,7 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
 
         for url, count in seen_assets.iteritems():
             if count > 1:
-                logging.warn('Inlined asset duplicated %dx: %s', count, url)
+                logging.warn('inline asset duplicated %dx: %s', count, url)
 
         return result
 

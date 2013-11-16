@@ -3,7 +3,8 @@ from __future__ import absolute_import, with_statement
 import os
 import re
 import binascii
-import itertools 
+import itertools
+import logging
 
 # What to calls to assetman look like in {% apply %} blocks?
 include_expr_matcher = re.compile(r'^assetman\.(include_\w+)').match
@@ -37,8 +38,16 @@ def iter_template_paths(template_dirs, template_ext):
                 yield os.path.join(root, f)
 
 # Shortcuts for creating paths relative to some other path
-def make_static_path(static_dir, p):
-    return os.path.join(static_dir, p)
+def make_absolute_static_path(static_dir, p):
+    if os.path.exists(p):
+        return p
+    return os.path.normpath(os.path.abspath(os.path.join(static_dir, p)))
+
+def make_relative_static_path(static_dir, p):
+    base = os.path.normpath(os.path.abspath(static_dir))
+    if p.startswith(base):
+        return p[len(base)+1:]
+    return p
 
 def make_output_path(compiled_asset_root, p):
     return os.path.join(compiled_asset_root, p)
@@ -57,6 +66,10 @@ def get_parser(template_path, template_type, settings):
     #TODO: dynamic import / return based on settings / config
     #avoids circular dep
     assert template_type in ["tornado_template", "django_template"]
+    assert isinstance(template_path, (str, unicode))
+    logging.info('parsing for %s %s', template_type, template_path)
+    if settings.get('verbose'):
+        print template_type, template_path
     if template_type == "tornado_template":
         from assetman.parsers.tornado_parser import TornadoParser
         return TornadoParser(template_path, settings)
