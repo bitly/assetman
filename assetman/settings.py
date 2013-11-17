@@ -4,7 +4,7 @@ import os
 try:
     import json
 except ImportError:
-    import simplejson as json
+    import simplejson as json # pyflakes.ignore
 
 example_settings = {   
     # Assetman needs to be able to point at assets to be served by us and by a
@@ -24,9 +24,6 @@ example_settings = {
     # If we need to fall back to serving all static assets ourselves
     # 'cdn_url_prefix': ['/cdn/'],
 
-    # Assetman also needs to know how to get a relative static path from the
-    # non-prefixed portion of a static URL. This setting controls that.
-    "static_path_prefix": "static/",
     # Where are static files found in the filesystem for this project?
     "static_dir": os.path.abspath(os.path.join(os.path.dirname(__file__), "static")),
     # And where are compiled static assets found?

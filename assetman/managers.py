@@ -86,15 +86,14 @@ class AssetManager(object):
         name_hash = self.get_hash()
         return self.manifest.blocks[name_hash]['versioned_path']
 
-    def make_asset_url(self, rel_url, static_url_prefix=None, local_cdn_url_prefix=None):
+    def make_asset_url(self, rel_url):
         """Builds a full URL based the given relative URL."""
         if self.settings['enable_static_compilation']:
-            prefix = static_url_prefix or self.settings['static_url_prefix']
+            prefix = self.settings['static_url_prefix']
         elif self.local:
-            prefix = local_cdn_url_prefix or self.settings.get('local_cdn_url_prefix')
+            prefix = self.settings.get('local_cdn_url_prefix')
         else:
             prefix = get_shard_from_list(self.settings['cdn_url_prefix'], os.path.basename(rel_url))
-
         return prefix.rstrip('/') + '/' + rel_url.lstrip('/')
 
     def render_attrs(self):
@@ -117,23 +116,17 @@ class AssetManager(object):
     def render_asset_element(self, url):
         raise NotImplementedError
 
-    def render(self, static_url_prefix=None, local_cdn_url_prefix=None):
+    def render(self):
         """Renders these assets. If static compilation is enabled, each asset is
         rendered individually. In a production environment, this should be disabled and
         just the compiled asset should rendered.
         """
-        static_url_prefix = static_url_prefix or self.settings.get("static_url_prefix")
-        local_cdn_url_prefix = local_cdn_url_prefix or self.settings.get("local_cdn_url_prefix")
-
-        make_url = functools.partial(self.make_asset_url,
-                                     static_url_prefix=static_url_prefix,
-                                     local_cdn_url_prefix=local_cdn_url_prefix)
         if self.settings['enable_static_compilation']:
-            urls = map(make_url, self.rel_urls)
+            urls = map(self.make_asset_url, self.rel_urls)
             return '\n'.join(map(self.render_asset, urls))
         else:
             compiled_name = self.get_compiled_name()
-            url = make_url(compiled_name)
+            url = self.make_asset_url(compiled_name)
             return self.render_asset(url)
 
     @classmethod
@@ -155,19 +148,18 @@ class AssetManager(object):
             return functools.partial(cls.include, **kwargs)
         return cls(s, **kwargs).render()
 
-    def static_url(self, url, static_url_prefix=None, local_cdn_url_prefix=None, local=None):
-        """A shortcut for ensuring that the given URL is versioned in
-        production.
+    def static_url(self, url_path, local=None):
+        """A shortcut for ensuring that the given URL is versioned in production.
         """
         if local is not None:
             self.local = local
-            
+        
         if self.settings['enable_static_compilation']:
-            return self.make_asset_url(url, static_url_prefix, local_cdn_url_prefix)
+            return self.make_asset_url(url_path)
         else:
-            path = os.path.join(static_url_prefix or self.settings.get('static_path_prefix'), url)
-            assert path in self.manifest.assets, path
-            return self.make_asset_url(self.manifest.assets[path]['versioned_path'], static_url_prefix, local_cdn_url_prefix)
+            assert url_path in self.manifest.assets, url_path
+            versioned_path = self.manifest.assets[url_path]['versioned_path']
+            return self.make_asset_url(versioned_path)
 
     def __str__(self):
         return '<%s src:%s assets:%s>' % (

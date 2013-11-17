@@ -363,7 +363,6 @@ def build_manifest(tornado_paths, django_paths, settings):
 def _create_settings(options):
     return Settings(compiled_asset_root=options.output_dir,
                     static_dir=options.static_dir,
-                    static_path_prefix=options.static_path_prefix,
                     static_url_prefix=options.static_url_path,
                     tornado_template_dirs=options.tornado_template_dirs,
                     django_template_dirs=options.django_template_dirs,
@@ -414,7 +413,7 @@ def run(settings):
         src_path, missing_deps = e.args
         logging.error('Dependency error in source %s!', src_path)
         logging.error('Missing paths: %s', missing_deps)
-        raise Exception
+        raise Exception("dependency error in %s. missing %s" % (src_path, missing_deps))
 
     # Remove duplicates from our list of compilers. This de-duplication must
     # happen after the current manifest is built, because each non-unique

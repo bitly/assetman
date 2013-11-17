@@ -44,11 +44,12 @@ class Manifest(object):
 
     def load(self, compiled_asset_path=None):
         try:
-            self._manifest = json.load(open(self.get_path(compiled_asset_path)))
+            filename = self.get_path(compiled_asset_path)
+            self._manifest = json.load(open(filename))
             assert isinstance(self.assets, dict)
             assert isinstance(self.blocks, dict)
         except (AssertionError, KeyError, IOError, json.JSONDecodeError), e:
-            logging.warn('Missing/invalid manifest file: %s', e)
+            logging.warn('error opening manifest file: %s', e)
             self._manifest = self.make_empty_manifest()
 
         return self
