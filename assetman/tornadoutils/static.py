@@ -139,7 +139,11 @@ class CompilingStaticHandler(tornado.web.RequestHandler):
             popen_args['env'] = new_env
         proc = subprocess.Popen(cmd, **popen_args)
         out, err = proc.communicate(input=stdin)
-        return proc.returncode, out.strip(), err.strip()
+
+        if proc.returncode == 0:
+            return out
+        logging.error('Error in %r %r', ' '.join(cmd), err)
+        raise tornado.web.HTTPError(500)
 
 
 class LessCompilerHandler(CompilingStaticHandler):
@@ -151,14 +155,7 @@ class LessCompilerHandler(CompilingStaticHandler):
         env = {
             'PATH': os.environ.get('PATH', '') 
         }
-        code, out, err = self.run_proc(cmd, env=env)
-        if code == 0:
-            return out
-        if code != 0:
-            return '\n'.join([
-                'Error in `%s`' % ' '.join(cmd),
-                err
-            ])
+        return self.run_proc(cmd, env=env)
 
 
 class SassCompilerHandler(CompilingStaticHandler):
@@ -176,14 +173,8 @@ class SassCompilerHandler(CompilingStaticHandler):
             '--compass', '--trace', '-l', '--stop-on-error',
             abs_path,
         ]
-        code, out, err = self.run_proc(cmd)
-        os.chdir(old_cwd)
-        if code == 0:
+        try:
+            out = self.run_proc(cmd)
             return out
-        else:
-            return '\n'.join([
-                'Sass compiler stdout:',
-                out,
-                'Sass compiler stderr:',
-                err,
-            ])
+        finally:
+            os.chdir(old_cwd)

@@ -121,13 +121,17 @@ class AssetManager(object):
         rendered individually. In a production environment, this should be disabled and
         just the compiled asset should rendered.
         """
-        if self.settings['enable_static_compilation']:
-            urls = map(self.make_asset_url, self.rel_urls)
-            return '\n'.join(map(self.render_asset, urls))
-        else:
-            compiled_name = self.get_compiled_name()
-            url = self.make_asset_url(compiled_name)
-            return self.render_asset(url)
+        try:
+            if self.settings['enable_static_compilation']:
+                urls = map(self.make_asset_url, self.rel_urls)
+                return '\n'.join(map(self.render_asset, urls))
+            else:
+                compiled_name = self.get_compiled_name()
+                url = self.make_asset_url(compiled_name)
+                return self.render_asset(url)
+        except:
+            logging.error('failed getting assets for %s', self.rel_urls)
+            raise
 
     @classmethod
     def include(cls, s=None, **kwargs):
