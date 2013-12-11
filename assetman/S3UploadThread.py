@@ -2,6 +2,7 @@
 from __future__ import with_statement
 import re
 import os
+import os.path
 import sys
 import threading
 import calendar
@@ -55,7 +56,13 @@ class S3UploadThread(threading.Thread):
 
         content_type, content_encoding = mimetypes.guess_type(file_name)
         if not content_type:
-            content_type = 'application/octet-stream'
+            ext = os.path.splitext(file_name)
+            content_type = {
+                '.woff': 'application/font-woff',
+                '.ttf': 'font/ttf',
+                '.otf': 'font/opentype',
+                '.eot': 'application/vnd.ms-fontobject'
+            }.get(ext, 'application/octet-stream')
         headers = {
             'Content-Type': content_type,
             'Expires': self.get_expires(),
