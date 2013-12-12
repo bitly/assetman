@@ -96,10 +96,10 @@ class S3UploadThread(threading.Thread):
             # Do we need to do URL replacement?
             if re.search(r'\.(css|js)$', key.name):
                 if for_cdn:
-                    logging.info('Rewriting URLs => CDN: %s', key.name)
+                    logging.info('Rewriting URLs => CDN in %s', key.name)
                     replacement_prefix = self.settings.get('cdn_url_prefix')
                 else:
-                    logging.info('Rewriting URLs => local proxy: %s', key.name)
+                    logging.info('Rewriting URLs => local proxy in %s', key.name)
                     replacement_prefix = self.settings.get('local_cdn_url_prefix')
                 file_data = sub_static_version(
                     file_data,
@@ -107,11 +107,11 @@ class S3UploadThread(threading.Thread):
                     replacement_prefix,
                     self.settings['static_dir'],
                     self.settings.get('static_url_prefix'))
-            key.set_contents_from_string(file_data, headers, replace=False)
+            key.set_contents_from_string(file_data, headers, replace=self.settings.get('force_s3_upload', False))
             logging.info('Uploaded %s', key.name)
             logging.debug('Headers: %r', headers)
         else:
-            logging.info('Skipping %s; already exists', key.name)
+            logging.info('Skipping upload of %s; already exists (use force_s3_upload to override)', key.name)
 
     def get_expires(self):
         # Get a properly formatted date and time, via Tornado's set_header()
@@ -190,7 +190,9 @@ def sub_static_version(src, manifest, replacement_prefix, static_dir, static_url
                 prefix = get_shard_from_list(replacement_prefix, versioned_path)
             else:
                 prefix = replacement_prefix
-            return prefix.rstrip('/') + '/' + versioned_path.lstrip('/')
+            replacement_link = prefix.rstrip('/') + '/' + versioned_path.lstrip('/')
+            logging.info('replacing %s -> %s', path, replacement_link)
+            return replacement_link
         logging.warn('Missing path %s in manifest, using %s', path, match.group(0))
         return match.group(0)
     pattern = get_static_pattern(static_url_prefix)
