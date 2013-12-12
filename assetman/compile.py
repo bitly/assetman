@@ -357,7 +357,6 @@ def build_manifest(tornado_paths, django_paths, settings):
             'version': content_hash,
             'versioned_path': content_hash + '.' + compiler.get_ext(),
         }
-        # FIXME for .js and .css files, also add dependencies to the block list to upload
         
     return manifest, compilers
 
@@ -370,6 +369,7 @@ def _create_settings(options):
                     template_extension=options.template_ext,
                     test_needs_compile=options.test_needs_compile,
                     skip_s3_upload=options.skip_s3_upload,
+                    force_s3_upload=False,
                     force_recompile=options.force_recompile,
                     skip_inline_images=options.skip_inline_images,
                     aws_username=options.aws_username,

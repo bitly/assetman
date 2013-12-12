@@ -92,8 +92,7 @@ class S3UploadThread(threading.Thread):
         our CloudFront CDN domains. Otherwise, they will be updated to point
         to our local CDN proxy.
         """
-        # TODO: give a way to force a re-upload
-        if not key.exists():
+        if not key.exists() or self.settings.get('force_s3_upload'):
             # Do we need to do URL replacement?
             if re.search(r'\.(css|js)$', key.name):
                 if for_cdn:
