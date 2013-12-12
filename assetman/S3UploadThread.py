@@ -146,7 +146,7 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     # block of the manifest.
     should_skip = re.compile(r'\.(scss|less|css|js|html)$', re.I).search
     for rel_path, depspec in manifest.assets.iteritems():
-        if should_skip(file_path):
+        if should_skip(rel_path):
             continue
         file_path = make_absolute_static_path(settings['static_dir'], rel_path)
         assert os.path.isfile(file_path), 'Missing static asset %s' % file_path
