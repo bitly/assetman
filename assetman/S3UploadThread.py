@@ -56,7 +56,7 @@ class S3UploadThread(threading.Thread):
 
         content_type, content_encoding = mimetypes.guess_type(file_name)
         if not content_type:
-            ext = os.path.splitext(file_name)
+            ext = os.path.splitext(file_name)[-1]
             content_type = {
                 '.woff': 'application/font-woff',
                 '.ttf': 'font/ttf',
