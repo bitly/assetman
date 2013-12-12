@@ -92,6 +92,7 @@ class S3UploadThread(threading.Thread):
         our CloudFront CDN domains. Otherwise, they will be updated to point
         to our local CDN proxy.
         """
+        # TODO: give a way to force a re-upload
         if not key.exists():
             # Do we need to do URL replacement?
             if re.search(r'\.(css|js)$', key.name):
@@ -156,7 +157,7 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     logging.info('Found %d assets to upload to S3', len(to_upload))
     if skip_s3_upload:
         logging.info('Skipping asset upload to S3 %s', to_upload)
-        return
+        return to_upload
 
     # Upload assets to S3 using 5 threads
     queue = Queue.Queue()
@@ -169,7 +170,7 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     queue.join()
     if errors:
         raise Exception(errors)
-
+    return to_upload
 
 
 def sub_static_version(src, manifest, replacement_prefix, static_dir, static_url_prefix):

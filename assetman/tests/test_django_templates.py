@@ -1,9 +1,5 @@
 import unittest
-import os
-
-# Hack: Do this before attempting to load any django-related stuff.
-# FIXME boo do not modify environ at module scope
-os.environ['DJANGO_SETTINGS_MODULE'] = 'assetman.tests.django_test_settings'
+import test_shunt # pyflakes.ignore
 
 import django.template
 from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler

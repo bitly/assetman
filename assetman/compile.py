@@ -164,13 +164,13 @@ def build_compilers(path_infos, settings):
     # but if you give them a timeout they will. More info:
     # http://bugs.python.org/issue8296
     # http://stackoverflow.com/a/1408476/151221
-    pool = multiprocessing.Pool()
 
     parser_worker = ParserWorker(settings)
     # a sync version for easier debugging (to see exceptions)
     compiler_lists = [parser_worker(x) for x in path_infos]
     output = [item for sublist in compiler_lists for item in sublist]
     return output
+    # pool = multiprocessing.Pool()
     # return [x for xs in pool.map_async(parser_worker, path_infos).get(1e100) for x in xs]
 
 
@@ -357,7 +357,8 @@ def build_manifest(tornado_paths, django_paths, settings):
             'version': content_hash,
             'versioned_path': content_hash + '.' + compiler.get_ext(),
         }
-
+        # FIXME for .js and .css files, also add dependencies to the block list to upload
+        
     return manifest, compilers
 
 def _create_settings(options):
@@ -457,12 +458,15 @@ def run(settings):
         #TODO: refactor to some chain of command for plugins
         if settings['aws_username']:
             upload_assets_to_s3(current_manifest, settings, skip_s3_upload=settings['skip_s3_upload'])
+        
 
         if settings.get('merge_manifest_updates', True):
             cached_manifest.union(current_manifest)
         else:
             cached_manifest = current_manifest
         cached_manifest.write(settings=settings)
+        return cached_manifest
+    return current_manifest
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)

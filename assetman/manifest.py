@@ -28,6 +28,9 @@ class Manifest(object):
     @property
     def blocks(self):
         return self._manifest['blocks']
+    
+    def __str__(self):
+        return '<Manifest %s assets:%s blocks:%s>' % (self.get_path(), self.assets, self.blocks)
 
     @classmethod
     def wrap(cls, data):
