@@ -86,8 +86,14 @@ class StaticFileHandler(tornado.web.RequestHandler):
             mime_type = 'font/ttf'
         if not mime_type and url.endswith('.eot'):
             mime_type = 'application/vnd.ms-fontobject'
+        if not mime_type and url.endswith('.woff'):
+            mime_type = 'application/x-font-woff'
+        if not mime_type and url.endswith('.json'):
+            mime_type = 'application/json'
         if mime_type:
             self.set_header("Content-Type", mime_type)
+        else:
+            logging.warning('Unable to guess mime type for %r', url)
 
 
 class CompilingStaticHandler(tornado.web.RequestHandler):
