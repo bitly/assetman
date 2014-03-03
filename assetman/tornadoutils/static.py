@@ -90,6 +90,8 @@ class StaticFileHandler(tornado.web.RequestHandler):
             mime_type = 'application/x-font-woff'
         if not mime_type and url.endswith('.json'):
             mime_type = 'application/json'
+        if not mime_type and url.endswith('.svg'):
+            mime_type = 'image/svg+xml'
         if mime_type:
             self.set_header("Content-Type", mime_type)
         else:

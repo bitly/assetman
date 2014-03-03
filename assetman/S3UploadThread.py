@@ -61,7 +61,8 @@ class S3UploadThread(threading.Thread):
                 '.woff': 'application/font-woff',
                 '.ttf': 'font/ttf',
                 '.otf': 'font/opentype',
-                '.eot': 'application/vnd.ms-fontobject'
+                '.eot': 'application/vnd.ms-fontobject',
+                '.svg': 'image/svg+xml',
             }.get(ext, 'application/octet-stream')
         headers = {
             'Content-Type': content_type,
