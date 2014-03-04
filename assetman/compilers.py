@@ -198,6 +198,8 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
             else:
                 encoded = base64.b64encode(open(path).read())
                 mime, _ = mimetypes.guess_type(path)
+                if mime is None and path.endswith('.svg'):
+                    mime = 'image/svg+xml'
                 data_uri = 'data:%s;base64,%s' % (mime, encoded)
                 if len(data_uri) >= MAX_DATA_URI_SIZE:
                     logging.debug('Not inlining %s (%.2fKB encoded)', path, len(data_uri) / KB)
