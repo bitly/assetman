@@ -163,7 +163,7 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
         if not kwargs.get("skip_inline_images"):
             css_input = self.inline_images(css_input)
         cmd = [
-            'java', '-Xss16m', '-jar', self.required_setting_file("yui_compressor_path"),
+            'java', '-Xss64m', '-jar', self.required_setting_file("yui_compressor_path"),
             '--type', 'css', '--line-break', '160',
         ]
         return run_proc(cmd, stdin=css_input)
