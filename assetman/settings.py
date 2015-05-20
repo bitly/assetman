@@ -34,6 +34,7 @@ default_settings = {
     "yui_compressor_path": "/bin/yuicompressor.jar",
     "sass_compiler": "/bin/sass",
     "lessc_path": "/bin/lessc",
+    "java_bin": "java"
 }
 
 class Settings(dict):
