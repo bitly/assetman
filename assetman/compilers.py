@@ -138,6 +138,7 @@ class JSCompiler(AssetCompiler, assetman.managers.JSManager):
         cmd = [
             self.required_setting_file("java_bin"), '-Xss16m', '-jar', self.required_setting_file("closure_compiler"),
             '--compilation_level', 'SIMPLE_OPTIMIZATIONS',
+            '--language_in', 'ECMASCRIPT5',
             ]
         for path in self.get_paths():
             cmd.extend(('--js', path))
