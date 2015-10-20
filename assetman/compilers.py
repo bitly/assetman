@@ -198,10 +198,20 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
                 return match.group(0)
             else:
                 encoded = base64.b64encode(open(path).read())
-                mime, _ = mimetypes.guess_type(path)
-                if mime is None and path.endswith('.svg'):
-                    mime = 'image/svg+xml'
-                data_uri = 'data:%s;base64,%s' % (mime, encoded)
+                mime_type, _ = mimetypes.guess_type(path)
+                if not mime_type and path.endswith('.otf'):
+                    mime_type = 'application/octet-stream'
+                if not mime_type and path.endswith('.ttf'):
+                    mime_type = 'font/ttf'
+                if not mime_type and path.endswith('.eot'):
+                    mime_type = 'application/vnd.ms-fontobject'
+                if not mime_type and path.endswith('.woff'):
+                    mime_type = 'application/x-font-woff'
+                if not mime_type and path.endswith('.json'):
+                    mime_type = 'application/json'
+                if not mime_type and path.endswith('.svg'):
+                    mime_type = 'image/svg+xml'
+                data_uri = 'data:%s;base64,%s' % (mime_type, encoded)
                 if len(data_uri) >= MAX_DATA_URI_SIZE:
                     logging.debug('Not inlining %s (%.2fKB encoded)', path, len(data_uri) / KB)
                     return match.group(0)
