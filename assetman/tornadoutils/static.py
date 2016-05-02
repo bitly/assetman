@@ -92,8 +92,14 @@ class StaticFileHandler(tornado.web.RequestHandler):
             mime_type = 'application/json'
         if not mime_type and url.endswith('.svg'):
             mime_type = 'image/svg+xml'
+        if not mime_type and url.endswith('.csv'):
+            mime_type = 'text/csv'
         if mime_type:
             self.set_header("Content-Type", mime_type)
+            if mime_type == 'text/csv':
+                filename = os.path.basename(url)
+                disposition = "attachment; filename=%s" % filename
+                self.set_header("Content-Disposition", disposition)
         else:
             logging.warning('Unable to guess mime type for %r', url)
 
