@@ -5,13 +5,11 @@ import os
 import os.path
 import sys
 import threading
-import calendar
 import datetime
-import email
 import Queue
 import mimetypes
 import logging
-from boto.s3.connection import S3Connection
+import boto3
 from assetman.tools import make_output_path, make_absolute_static_path, make_relative_static_path, get_static_pattern, get_shard_from_list
 
 class S3UploadThread(threading.Thread):
@@ -28,8 +26,12 @@ class S3UploadThread(threading.Thread):
 
     def __init__(self, queue, errors, manifest, settings):
         threading.Thread.__init__(self)
-        cx = S3Connection(settings.get('aws_access_key'), settings.get('aws_secret_key'))
-        self.bucket = cx.get_bucket(settings.get('s3_assets_bucket'))
+        self.client = boto3.client('s3',
+            aws_access_key_id=settings.get('aws_access_key'),
+            aws_secret_access_key=settings.get('aws_secret_key'))
+        self.bucket = boto3.resource('s3',
+            aws_access_key_id=settings.get('aws_access_key'),
+            aws_secret_access_key=settings.get('aws_secret_key')).Bucket(settings.get('s3_assets_bucket'))
         self.queue = queue
         self.errors = errors
         self.manifest = manifest
@@ -66,23 +68,30 @@ class S3UploadThread(threading.Thread):
             }.get(ext, 'application/octet-stream')
         headers = {
             'Content-Type': content_type,
-            'Expires': self.get_expires(),
             'Cache-Control': self.get_cache_control(),
-            'x-amz-acl': 'public-read',
         }
 
         with open(file_path, 'rb') as f:
             file_data = f.read()
             # First we will upload the asset for serving via CloudFront CDN,
             # so its S3 key will not have a prefix.
-            key = self.bucket.new_key(file_name)
+            key = self.bucket.Object(file_name)
             self.upload_file(key, file_data, headers, for_cdn=True)
 
             # Next we will upload the same file with a prefixed key, to be
             # served by our "local CDN proxy".
             key_prefix = self.settings.get('local_cdn_url_prefix').lstrip('/').rstrip('/')
-            key = self.bucket.new_key(key_prefix + '/' + file_name)
+            key = self.bucket.Object(key_prefix + '/' + file_name)
             self.upload_file(key, file_data, headers, for_cdn=False)
+
+    def exists(self, obj):
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.head_object
+        try:
+            self.client.head_object(Bucket=obj.bucket_name, Key=obj.key)
+        except Exception, e:
+            logging.error('got %s', e)
+            return False
+        return True
 
     def upload_file(self, key, file_data, headers, for_cdn):
         """Uploads the given file_data to the given S3 key. If the file is a
@@ -93,14 +102,14 @@ class S3UploadThread(threading.Thread):
         our CloudFront CDN domains. Otherwise, they will be updated to point
         to our local CDN proxy.
         """
-        if not key.exists() or self.settings.get('force_s3_upload'):
+        if self.settings.get('force_s3_upload') or not self.exists(key):
             # Do we need to do URL replacement?
-            if re.search(r'\.(css|js)$', key.name):
+            if re.search(r'\.(css|js)$', key.key):
                 if for_cdn:
-                    logging.info('Rewriting URLs => CDN in %s', key.name)
+                    logging.info('Rewriting URLs => CDN in %s', key.key)
                     replacement_prefix = self.settings.get('cdn_url_prefix')
                 else:
-                    logging.info('Rewriting URLs => local proxy in %s', key.name)
+                    logging.info('Rewriting URLs => local proxy in %s', key.key)
                     replacement_prefix = self.settings.get('local_cdn_url_prefix')
                 file_data = sub_static_version(
                     file_data,
@@ -108,17 +117,16 @@ class S3UploadThread(threading.Thread):
                     replacement_prefix,
                     self.settings['static_dir'],
                     self.settings.get('static_url_prefix'))
-            key.set_contents_from_string(file_data, headers, replace=self.settings.get('force_s3_upload', False))
-            logging.info('Uploaded %s', key.name)
+            key.put(Body=file_data, CacheControl=headers.get('Cache-Control'), ContentType=headers.get('Content-Type'), ACL="public-read", Expires=self.get_expires())
+            logging.info('Uploaded s3://%s/%s', key.bucket_name, key.key)
             logging.debug('Headers: %r', headers)
         else:
-            logging.info('Skipping upload of %s; already exists (use force_s3_upload to override)', key.name)
+            logging.info('Skipping upload of %s; already exists (use force_s3_upload to override)', key.key)
 
     def get_expires(self):
         # Get a properly formatted date and time, via Tornado's set_header()
         dt = datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
-        t = calendar.timegm(dt.utctimetuple())
-        return email.utils.formatdate(t, localtime=False, usegmt=True)
+        return dt
 
 
     def get_cache_control(self):

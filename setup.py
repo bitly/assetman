@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='assetman',
-      version='0.1.20', # also update in __init__.py
+      version='0.1.21', # also update in __init__.py
       description='AssetMan asset manager',
       url="http://github.com/bitly/assetman",
       license="Apache Software License",
@@ -16,6 +16,9 @@ setup(name='assetman',
       install_requires=['simplejson',
                         'multiprocessing',
                        ],
-
+      classifiers = [
+                     "Programming Language :: Python :: 2",
+                     "Programming Language :: Python :: 2.7",
+                     ],
       scripts=['scripts/assetman_compile']
 )
