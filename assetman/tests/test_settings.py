@@ -12,7 +12,7 @@ class TestSettings(unittest.TestCase):
             'testkey2': "testvalue2",
             "lessc_path" : "asdf",
             "sass_compiler": "asdf",
-            "yui_compressor_path": "asdf",
+            "minify_compressor_path": "asdf",
             "closure_compiler": "asdf"
         }
 

@@ -27,7 +27,7 @@ def get_settings(**opts):
                     force_recompile=False,
                     skip_inline_images=True,
                     closure_compiler=opts.get('closure_compiler', '/bitly/local/bin/closure-compiler.jar'),
-                    yui_compressor_path=opts.get('yui_compressor_path', '/bitly/local/bin/yuicompressor.jar'),
+                    minify_compressor_path=opts.get('minify_compressor_path', '/bitly/local/bin/minify'),
                     sass_compiler=opts.get('sass_compiler', '/bitly/local/bin/sass'),
                     lessc_path=opts.get('lessc_path', '/bitly/local/bin/lessc'),
                     aws_username=None,

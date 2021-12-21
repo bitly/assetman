@@ -150,9 +150,11 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
     include_expr = 'include_css'
 
     def do_compile(self, **kwargs): 
-        """Compiles CSS files using the YUI compressor. Since the compressor
+        """Compiles CSS files using the minify compressor. Since the compressor
         will only accept a single input file argument, we have to manually
         concat the CSS files in the batch and pipe them into the compressor.
+
+        https://github.com/tdewolff/minify/tree/master/cmd/minify
 
         This also allows us to accept a css_input argument, so this function
         can be used by the compile_less function as well.
@@ -164,8 +166,8 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
         if not kwargs.get("skip_inline_images"):
             css_input = self.inline_images(css_input)
         cmd = [
-            self.required_setting_file("java_bin"), '-Xss64m', '-jar', self.required_setting_file("yui_compressor_path"),
-            '--type', 'css', '--line-break', '160',
+           self.required_setting_file("minify_compressor_path"),
+           '--type=css'
         ]
         return run_proc(cmd, stdin=css_input)
 
