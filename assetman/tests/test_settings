@@ -1,1 +1,1 @@
-{"testkey2": "testvalue2", "testkey1": "testvalue1", "yui_compressor_path": "/bin/yuicompressor.jar", "lessc_path": "/bin/lessc", "sass_compiler": "/bin/sass", "closure_compiler": "/bin/closure-compiler.jar"}
+{"testkey2": "testvalue2", "testkey1": "testvalue1", "minify_compressor_path": "/bin/minify", "lessc_path": "/bin/lessc", "sass_compiler": "/bin/sass", "closure_compiler": "/bin/closure-compiler.jar"}

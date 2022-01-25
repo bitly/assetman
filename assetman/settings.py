@@ -31,7 +31,7 @@ example_settings = {
 }
 default_settings = {
     "closure_compiler":"/bin/closure-compiler.jar",
-    "yui_compressor_path": "/bin/yuicompressor.jar",
+    "minify_compressor_path": "/bin/minify",
     "sass_compiler": "/bin/sass",
     "lessc_path": "/bin/lessc",
     "java_bin": "java"

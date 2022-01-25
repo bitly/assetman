@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='assetman',
-      version='0.1.21', # also update in __init__.py
+      version='0.2.0', # also update in __init__.py
       description='AssetMan asset manager',
       url="http://github.com/bitly/assetman",
       license="Apache Software License",
