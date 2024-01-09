@@ -1,2 +1,2 @@
-from helpers import TemplateCommands
-from static import StaticFileHandler, CompilingStaticHandler, LessCompilerHandler, SassCompilerHandler
+from .helpers import TemplateCommands
+from .static import StaticFileHandler, CompilingStaticHandler, LessCompilerHandler, SassCompilerHandler

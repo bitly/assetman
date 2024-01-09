@@ -1,6 +1,6 @@
 #!/bin/python
 
-from __future__ import with_statement
+
 
 import os
 import re
@@ -21,10 +21,6 @@ class NeedsCompilation(Exception):
     pass
 
 parser = OptionParser(description='Compiles assets for AssetMan')
-
-parser.add_option(
-    '--django_template_dirs', type="string", action='append', 
-    help='Directory to crawl looking for static assets to compile.')
 
 parser.add_option(
     '--tornado_template_dirs', type="string", action='append', 
@@ -192,7 +188,7 @@ def iter_template_deps(static_dir, src_path, static_url_prefix):
             if os.path.isfile(dep_path):
                 yield dep_path
             else:
-                logging.warn('Missing dep %s (src: %s)', dep_path, src_path)
+                logging.warning('Missing dep %s (src: %s)', dep_path, src_path)
 
 ###############################################################################
 
@@ -208,9 +204,9 @@ def version_dependency(path, manifest):
     if manifest.assets[path]['version']:
         return manifest.assets[path]['version']
     h = hashlib.md5()
-    h.update(get_file_hash(make_absolute_static_path(manifest.settings['static_dir'], path)))
+    h.update(get_file_hash(make_absolute_static_path(manifest.settings['static_dir'], path)).encode())
     for dep_path in manifest.assets[path]['deps']:
-        h.update(version_dependency(dep_path, manifest))
+        h.update(version_dependency(dep_path, manifest).encode())
     version = h.hexdigest()
     _, ext = os.path.splitext(path)
     manifest.assets[path]['version'] = version
@@ -298,7 +294,7 @@ def iter_static_deps(static_dir, src_path, static_url_prefix):
         if os.path.isfile(dep_path):
             yield dep_path
         else:
-            logging.warn('Missing dep %s (src: %s)', dep_path, src_path)
+            logging.warning('Missing dep %s (src: %s)', dep_path, src_path)
 
 
 def _build_manifest_helper(static_dir, src_paths, static_url_prefix, manifest):
@@ -315,17 +311,15 @@ def _build_manifest_helper(static_dir, src_paths, static_url_prefix, manifest):
             _build_manifest_helper(static_dir, [dep_path], static_url_prefix, manifest)
 
 
-def build_manifest(tornado_paths, django_paths, settings):
+def build_manifest(tornado_paths, settings):
     """Recursively builds the dependency manifest for the given list of source
     paths.
     """
     assert isinstance(tornado_paths, (list, tuple))
-    assert isinstance(django_paths, (list, tuple))
 
-    paths = list(set(tornado_paths).union(set(django_paths)))
+    paths = list(set(tornado_paths))
     # First, parse each template to build a list of AssetCompiler instances
     path_infos = [(x, 'tornado_template') for x in tornado_paths]
-    path_infos += [(x, 'django_template') for x in django_paths]
     compilers = build_compilers(path_infos, settings)
 
     # Add each AssetCompiler's paths to our set of paths to search for deps
@@ -333,7 +327,7 @@ def build_manifest(tornado_paths, django_paths, settings):
     for compiler in compilers:
         new_paths = compiler.get_paths()
         if settings.get('verbose'):
-            print compiler, new_paths
+            print(compiler, new_paths)
         paths.update(new_paths)
     paths = list(paths)
 
@@ -365,7 +359,6 @@ def _create_settings(options):
                     static_dir=options.static_dir,
                     static_url_prefix=options.static_url_path,
                     tornado_template_dirs=options.tornado_template_dirs,
-                    django_template_dirs=options.django_template_dirs,
                     template_extension=options.template_ext,
                     test_needs_compile=options.test_needs_compile,
                     skip_s3_upload=options.skip_s3_upload,
@@ -386,7 +379,7 @@ def run(settings):
         logging.info('Creating output directory: %s', settings['compiled_asset_root'])
         os.makedirs(settings['compiled_asset_root'])
 
-    for d in settings['tornado_template_dirs'] + settings['django_template_dirs']:
+    for d in settings['tornado_template_dirs']:
         if not os.path.isdir(d):
             raise Exception('Template directory not found: %r', d)
 
@@ -395,22 +388,20 @@ def run(settings):
 
     # Find all the templates we need to parse
     tornado_paths = list(iter_template_paths(settings['tornado_template_dirs'], settings['template_extension']))
-    django_paths = list(iter_template_paths(settings['django_template_dirs'], settings['template_extension']))
 
-    logging.debug('found %d tornado and %d django template paths', len(tornado_paths), len(django_paths))
-    if not tornado_paths and not django_paths:
-        logging.warn("No templates found")
+    if not tornado_paths:
+        logging.warning("No templates found")
 
     # Load the current manifest and generate a new one
     cached_manifest = Manifest(settings).load()
     try:
-        current_manifest, compilers = build_manifest(tornado_paths, django_paths, settings)
-    except ParseError, e:
+        current_manifest, compilers = build_manifest(tornado_paths, settings)
+    except ParseError as e:
         src_path, msg = e.args
         logging.error('Error parsing template %s', src_path)
         logging.error(msg)
         raise Exception
-    except DependencyError, e:
+    except DependencyError as e:
         src_path, missing_deps = e.args
         logging.error('Dependency error in source %s!', src_path)
         logging.error('Missing paths: %s', missing_deps)
@@ -421,7 +412,7 @@ def run(settings):
     # compiler's source path figures into the dependency tracking. But we only
     # need to actually compile each block once.
     logging.debug('Found %d assetman block compilers', len(compilers))
-    compilers = dict((c.get_hash(), c) for c in compilers).values()
+    compilers = list(dict((c.get_hash(), c) for c in compilers).values())
     logging.debug('%d unique assetman block compilers', len(compilers))
 
     # update the manifest on each our compilers to reflect the new manifest,
@@ -436,7 +427,7 @@ def run(settings):
     if settings['force_recompile']:
         to_compile = compilers
     else:
-        to_compile = filter(needs_compile, compilers)
+        to_compile = list(filter(needs_compile, compilers))
 
     if to_compile or cached_manifest.needs_recompile(current_manifest):
         # If we're only testing whether a compile is needed, we're done
@@ -447,8 +438,8 @@ def run(settings):
         try:
             # See note above about bug in pool.map w/r/t KeyboardInterrupt.
             _compile_worker = CompileWorker(settings.get('skip_inline_images', False), current_manifest)
-            pool.map_async(_compile_worker, to_compile).get(1e100)
-        except CompileError, e:
+            pool.map_async(_compile_worker, to_compile).get(1e9) # previously set to 1e100 which caused overflow of C _PyTime_t_
+        except CompileError as e:
             cmd, msg = e.args
             logging.error('Compile error!')
             logging.error('Command: %s', ' '.join(cmd))

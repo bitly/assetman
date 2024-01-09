@@ -1,10 +1,7 @@
-from __future__ import absolute_import, with_statement
+
 
 import os
-try:
-    import json
-except ImportError:
-    import simplejson as json # pyflakes.ignore
+import json
 
 example_settings = {   
     # Assetman needs to be able to point at assets to be served by us and by a

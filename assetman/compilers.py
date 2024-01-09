@@ -1,4 +1,4 @@
-from __future__ import absolute_import, with_statement
+
 
 import base64
 from collections import defaultdict
@@ -24,13 +24,14 @@ def run_proc(cmd, stdin=None):
     popen_args = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if stdin is not None:
         popen_args['stdin'] = subprocess.PIPE
+        stdin = stdin.encode()
     proc = subprocess.Popen(cmd, **popen_args)
     out, err = proc.communicate(input=stdin)
     if proc.returncode != 0:
         raise CompileError(cmd, err)
     elif err:
-        logging.warn('%s stderr:\n%s', cmd[0], err)
-    return out
+        logging.warning('%s stderr:\n%s', cmd[0], err)
+    return out.decode()
 
 class CompileError(Exception):
     """Error encountered while compiling assets."""
@@ -88,16 +89,16 @@ class AssetCompiler(object):
             if cached_manifest.blocks[name_hash]['version'] == content_hash:
                 compiled_path = self.get_compiled_path()
                 if not os.path.exists(compiled_path):
-                    logging.warn('Missing compiled asset %s from %s',
+                    logging.warning('Missing compiled asset %s from %s',
                                  compiled_path, self)
                     return True
                 return False
             else:
-                logging.warn('Contents of %s changed', self)
+                logging.warning('Contents of %s changed', self)
         else:
             compiled_path = self.get_compiled_path()
             if not os.path.exists(compiled_path):
-                logging.warn('New/unknown hash %s from %s', name_hash, self)
+                logging.warning('New/unknown hash %s from %s', name_hash, self)
             else:
                 logging.info('new hash %s from %s but already exists on file %s', name_hash, self, compiled_path)
                 return False
@@ -109,12 +110,12 @@ class AssetCompiler(object):
         for path in self.get_paths():
             relative_path = make_relative_static_path(self.settings['static_dir'], path)
             assert relative_path in manifest.assets, relative_path
-            h.update(manifest.assets[relative_path]['version'])
+            h.update(manifest.assets[relative_path]['version'].encode())
         return h.hexdigest()
 
     def get_paths(self):
         """Returns a list of absolute paths to the assets contained in this manager."""
-        paths = map(functools.partial(make_absolute_static_path, self.settings['static_dir']), self.rel_urls)
+        paths = list(map(functools.partial(make_absolute_static_path, self.settings['static_dir']), self.rel_urls))
         try:
             assert all(map(os.path.isfile, paths))
         except AssertionError:
@@ -222,9 +223,9 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
 
         result = re.sub(pattern, replacer, css_src)
 
-        for url, count in seen_assets.iteritems():
+        for url, count in seen_assets.items():
             if count > 1:
-                logging.warn('inline asset duplicated %dx: %s', count, url)
+                logging.warning('inline asset duplicated %dx: %s', count, url)
 
         return result
 

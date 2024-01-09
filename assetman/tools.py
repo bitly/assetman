@@ -1,4 +1,4 @@
-from __future__ import absolute_import, with_statement
+
 
 import os
 import re
@@ -20,8 +20,10 @@ def _crc(key):
 
 def _utf8(s):
     """encode a unicode string as utf-8"""
-    if isinstance(s, unicode):
-        return s.encode("utf-8")
+    if isinstance(s, str):
+        return s.encode("utf-8").decode()
+    if isinstance(s, bytes):
+        return s.decode("utf-8")
     assert isinstance(s, str), "_utf8 expected a str, not %r" % type(s)
     return s
 
@@ -34,7 +36,7 @@ def iter_template_paths(template_dirs, template_ext):
 
     for template_dir in template_dirs:
         for root, dirs, files in os.walk(template_dir):
-            for f in itertools.ifilter(template_file_matcher, files):
+            for f in filter(template_file_matcher, files):
                 yield os.path.join(root, f)
 
 # Shortcuts for creating paths relative to some other path
@@ -65,14 +67,10 @@ def get_parser(template_path, template_type, settings):
     """ Factory method to return appropriate parser class """
     #TODO: dynamic import / return based on settings / config
     #avoids circular dep
-    assert template_type in ["tornado_template", "django_template"]
-    assert isinstance(template_path, (str, unicode))
+    assert template_type in ["tornado_template"]
+    assert isinstance(template_path, str)
     logging.info('parsing for %s %s', template_type, template_path)
     if settings.get('verbose'):
-        print template_type, template_path
-    if template_type == "tornado_template":
-        from assetman.parsers.tornado_parser import TornadoParser
-        return TornadoParser(template_path, settings)
-    else:
-        from assetman.parsers.django_parser import DjangoParser
-        return DjangoParser(template_path, settings)
+        print(template_type, template_path)
+    from assetman.parsers.tornado_parser import TornadoParser
+    return TornadoParser(template_path, settings)

@@ -1,4 +1,4 @@
-from __future__ import absolute_import, with_statement
+
 from assetman.settings import Settings
 from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler, SassCompiler
 

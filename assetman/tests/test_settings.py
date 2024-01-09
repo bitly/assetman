@@ -1,7 +1,7 @@
-from __future__ import with_statement
+
 
 import unittest
-import simplejson as json
+import json
 
 from assetman.settings import Settings
 
@@ -13,7 +13,8 @@ class TestSettings(unittest.TestCase):
             "lessc_path" : "asdf",
             "sass_compiler": "asdf",
             "minify_compressor_path": "asdf",
-            "closure_compiler": "asdf"
+            "closure_compiler": "asdf",
+            "java_bin": "asdf"
         }
 
         savepath = "./assetman/tests/test_settings"
@@ -24,7 +25,7 @@ class TestSettings(unittest.TestCase):
         s = Settings.load(savepath)
 
         assert s is not None
-        for k, v in s.items():
+        for k, v in list(s.items()):
             assert settings_stub[k] == v
 
     def test_settings_can_write_to_file(self):
@@ -40,10 +41,10 @@ class TestSettings(unittest.TestCase):
                 assert saved_file, "file not found, save failed"
 
                 settings_dict = json.loads(saved_file.read())
-                for k, v in settings_dict.items():
+                for k, v in list(settings_dict.items()):
                     assert s[k] == v
 
-        except Exception, ex:
+        except Exception as ex:
             self.fail(str(ex))
 
 if __name__ == "__main__":

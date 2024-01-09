@@ -24,7 +24,7 @@ def invalidate_paths(paths):
 
 def main(urls):
     if not urls:
-        choice = raw_input('No URLs given. Invalidate all URLs? (y/n) ')
+        choice = input('No URLs given. Invalidate all URLs? (y/n) ')
         if choice.lower() != 'y':
             return 1
         urls = ['/*']
@@ -34,7 +34,7 @@ def main(urls):
         what = 'all URLs'
     else:
         what = '%d URLs' % len(urls)
-    print 'May or may not have invalidated cache for %s on %s CloudFront distributions' % (what, len(reqs))
+    print('May or may not have invalidated cache for %s on %s CloudFront distributions' % (what, len(reqs)))
     return 0
 
 
