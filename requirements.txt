@@ -15,6 +15,6 @@ s3transfer==0.10.0
 six==1.16.0
 sqlparse==0.4.4
 tomli==2.0.1
-tornado==5.1.1
+tornado==6.3.3
 typing-extensions==4.9.0
 urllib3==1.26.18
