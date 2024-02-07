@@ -1,12 +1,12 @@
 #!/bin/python
-from __future__ import with_statement
+
 import re
 import os
 import os.path
 import sys
 import threading
 import datetime
-import Queue
+import queue as Queue
 import mimetypes
 import logging
 import boto3
@@ -42,7 +42,7 @@ class S3UploadThread(threading.Thread):
             file_name, file_path = self.queue.get()
             try:
                 self.start_upload_file(file_name, file_path)
-            except Exception, e:
+            except Exception as e:
                 logging.error('Error uploading %s: %s', file_name, e)
                 self.errors.append((sys.exc_info(), self))
             finally:
@@ -52,8 +52,8 @@ class S3UploadThread(threading.Thread):
         """Starts the procecss of uploading a file to S3. Each file will be
         uploaded twice (once for CDN and once for our local CDN proxy).
         """
-        assert isinstance(file_name, (str, unicode))
-        assert isinstance(file_path, (str, unicode))
+        assert isinstance(file_name, str)
+        assert isinstance(file_path, str)
         assert os.path.isfile(file_path)
 
         content_type, content_encoding = mimetypes.guess_type(file_name)
@@ -88,7 +88,7 @@ class S3UploadThread(threading.Thread):
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.head_object
         try:
             self.client.head_object(Bucket=obj.bucket_name, Key=obj.key)
-        except Exception, e:
+        except Exception as e:
             logging.error('got %s', e)
             return False
         return True
@@ -143,7 +143,7 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
 
     # We know we want to upload each asset block (these correspond to the
     # assetman.include_* blocks in each template)
-    for depspec in manifest.blocks.itervalues():
+    for depspec in manifest.blocks.values():
         file_name = depspec['versioned_path']
         file_path = make_output_path(settings['compiled_asset_root'], file_name)
         assert os.path.isfile(file_path), 'Missing compiled asset %s' % file_path
@@ -154,7 +154,7 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     # but we'll need to filter out other entries in the complete 'assets'
     # block of the manifest.
     should_skip = re.compile(r'\.(scss|less|css|js|html)$', re.I).search
-    for rel_path, depspec in manifest.assets.iteritems():
+    for rel_path, depspec in manifest.assets.items():
         if should_skip(rel_path):
             continue
         file_path = make_absolute_static_path(settings['static_dir'], rel_path)
@@ -170,11 +170,11 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     # Upload assets to S3 using 5 threads
     queue = Queue.Queue()
     errors = []
-    for i in xrange(5):
+    for i in range(5):
         uploader = S3UploadThread(queue, errors, manifest, settings)
         uploader.setDaemon(True)
         uploader.start()
-    map(queue.put, to_upload)
+    list(map(queue.put, to_upload))
     queue.join()
     if errors:
         raise Exception(errors)
@@ -202,7 +202,7 @@ def sub_static_version(src, manifest, replacement_prefix, static_dir, static_url
             replacement_link = prefix.rstrip('/') + '/' + versioned_path.lstrip('/')
             logging.info('replacing %s -> %s', path, replacement_link)
             return replacement_link
-        logging.warn('Missing path %s in manifest, using %s', path, match.group(0))
+        logging.warning('Missing path %s in manifest, using %s', path, match.group(0))
         return match.group(0)
     pattern = get_static_pattern(static_url_prefix)
     return re.sub(pattern, replacer, src)

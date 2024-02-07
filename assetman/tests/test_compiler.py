@@ -1,5 +1,5 @@
-from __future__ import with_statement
-import test_shunt # pyflakes.ignore
+
+from . import test_shunt # pyflakes.ignore
 
 import contextlib
 
@@ -16,21 +16,20 @@ def get_settings(**opts):
     logging.info('temp dir %s', COMPILED_ASSET_DIR)
     assetman_settings = Settings(
                     compiled_asset_root=COMPILED_ASSET_DIR,
-                    static_dir='static_dir',
-                    static_url_prefix='/static/',
-                    tornado_template_dirs=['tornado_templates'],
-                    django_template_dirs=[],
-                    # django_template_dirs=['django_templates'],
+                    static_dir="./assetman/tests/static_dir",
+                    static_url_prefix="/static/",
+                    tornado_template_dirs=["./assetman/tests/tornado_templates"],
                     template_extension="html",
-                    test_needs_compile=opts.get('test_needs_compile', True),
+                    test_needs_compile=opts.get("test_needs_compile", True),
                     skip_s3_upload=True,
                     force_recompile=False,
                     skip_inline_images=True,
-                    closure_compiler=opts.get('closure_compiler', '/bitly/local/bin/closure-compiler.jar'),
-                    minify_compressor_path=opts.get('minify_compressor_path', '/bitly/local/bin/minify'),
-                    sass_compiler=opts.get('sass_compiler', '/bitly/local/bin/sass'),
-                    lessc_path=opts.get('lessc_path', '/bitly/local/bin/lessc'),
+                    closure_compiler=opts.get("closure_compiler", "/bitly/local/bin/closure-compiler.jar"),
+                    minify_compressor_path=opts.get("minify_compressor_path", "/bitly/local/bin/minify"),
+                    sass_compiler=opts.get("sass_compiler", "/bitly/local/bin/sass"),
+                    lessc_path=opts.get("lessc_path", "/bitly/local/hamburger/node_modules/.bin/lessc"), # lessc is included as a node module in hamburger. Does not exist in /bitly/local/bin/
                     aws_username=None,
+                    java_bin="/usr/bin/java",
                     )
     return assetman_settings
     
@@ -50,8 +49,8 @@ def run_compiler(test_needs_compile=True, **opts):
     return manifest
 
 def test_needs_compile():
-    main_files = ['test.css', 'test.less', 'test.js']
-    dependency_files = ['dependency.png']
+    main_files = ["test.css", "test.less", "test.js"]
+    dependency_files = ["dependency.png"]
     try:
         manifest = run_compiler()
         raise Exception("should need compile")
@@ -92,7 +91,7 @@ def temporarily_alter_contents(path, data):
     contents = open(path).read()
     open(path, 'a').write(data)
     yield
-    print 'undoing alter contents! %d' % len(contents)
+    print('undoing alter contents! %d' % len(contents))
     open(path, 'w').write(contents)
 
 # 

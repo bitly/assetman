@@ -1,4 +1,4 @@
-from __future__ import absolute_import, with_statement
+
 
 import os
 import logging
@@ -46,7 +46,7 @@ class AssetManager(object):
         Any extra kwargs will be interpreted as extra HTML params to include
         on the rendered element.
         """
-        self.rel_urls = filter(None, _utf8(rel_url_text).split())
+        self.rel_urls = [_f for _f in _utf8(rel_url_text).split() if _f]
         self.local = local
         self.include_tag = include_tag
         self.src_path = src_path
@@ -71,7 +71,7 @@ class AssetManager(object):
         """Gets the md5 hash for the URLs in this block of assets, which will
         be used to refer to the compiled assets in production.
         """
-        return hashlib.md5('\n'.join(self.rel_urls)).hexdigest()
+        return hashlib.md5('\n'.join(self.rel_urls).encode()).hexdigest()
 
     def get_ext(self):
         """Returns the file extension (without leading period) to use for the
@@ -101,7 +101,7 @@ class AssetManager(object):
         leading space.
         """
         attrs = ' '.join('%s=%r' % (attr, _utf8(val))
-                         for attr, val in self.attrs.iteritems())
+                         for attr, val in self.attrs.items())
         return ' ' + attrs if attrs else ''
 
     def render_asset(self, url):
@@ -123,7 +123,7 @@ class AssetManager(object):
         """
         try:
             if self.settings['enable_static_compilation']:
-                urls = map(self.make_asset_url, self.rel_urls)
+                urls = list(map(self.make_asset_url, self.rel_urls))
                 return '\n'.join(map(self.render_asset, urls))
             else:
                 compiled_name = self.get_compiled_name()

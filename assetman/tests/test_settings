@@ -1,1 +1,1 @@
-{"testkey2": "testvalue2", "testkey1": "testvalue1", "minify_compressor_path": "/bin/minify", "lessc_path": "/bin/lessc", "sass_compiler": "/bin/sass", "closure_compiler": "/bin/closure-compiler.jar"}
+{"closure_compiler": "/bin/closure-compiler.jar", "minify_compressor_path": "/bin/minify", "sass_compiler": "/bin/sass", "lessc_path": "/bin/lessc", "java_bin": "java", "testkey1": "testvalue1", "testkey2": "testvalue2"}

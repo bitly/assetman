@@ -11,14 +11,10 @@ setup(name='assetman',
       author_email="wm@bit.ly",
       maintainer="Jehiah Czebotar",
       maintainer_email="jehiah@gmail.com",
-      packages=['assetman', 'assetman/parsers', 'assetman/tornadoutils', 'assetman/django_assetman', 
-                        'assetman/django_assetman/templatetags'],
-      install_requires=['simplejson',
-                        'multiprocessing',
-                       ],
+      packages=['assetman', 'assetman/parsers', 'assetman/tornadoutils'],
       classifiers = [
-                     "Programming Language :: Python :: 2",
-                     "Programming Language :: Python :: 2.7",
+                     "Programming Language :: Python :: 3",
+                     "Programming Language :: Python :: 3.9",
                      ],
       scripts=['scripts/assetman_compile']
 )

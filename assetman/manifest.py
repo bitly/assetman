@@ -1,7 +1,7 @@
-from __future__ import absolute_import, with_statement
+
 
 import os
-import simplejson as json
+import json
 import logging
 
 from assetman.settings import Settings
@@ -51,8 +51,8 @@ class Manifest(object):
             self._manifest = json.load(open(filename))
             assert isinstance(self.assets, dict)
             assert isinstance(self.blocks, dict)
-        except (AssertionError, KeyError, IOError, json.JSONDecodeError), e:
-            logging.warn('error opening manifest file: %s', e)
+        except (AssertionError, KeyError, IOError, json.JSONDecodeError) as e:
+            logging.warning('error opening manifest file: %s', e)
             self._manifest = self.make_empty_manifest()
 
         return self
@@ -76,12 +76,12 @@ class Manifest(object):
         when the manifest is built) and then by ensuring that every dependency has
         its own entry and version in the top level of the manifest.
         """
-        for parent, depspec in self.assets.iteritems():
+        for parent, depspec in self.assets.items():
             depspec['deps'] = list(depspec['deps'])
             for dep in depspec['deps']:
                 assert dep in self.assets, (parent, dep)
                 assert depspec['version'], (parent, dep)
-        for name_hash, depspec in self.blocks.iteritems():
+        for name_hash, depspec in self.blocks.items():
             assert depspec['version'], name_hash
 
     def union(self, newer_manifest):
@@ -89,8 +89,8 @@ class Manifest(object):
         # generations ago an entry was created
         def age(entry):
             entry['age'] = entry.get('age', 0) + 1
-        map(age, self.blocks.values())
-        map(age, self.assets.values())
+        list(map(age, list(self.blocks.values())))
+        list(map(age, list(self.assets.values())))
         self.blocks.update(newer_manifest.blocks)
         self.assets.update(newer_manifest.assets)
     
@@ -102,11 +102,11 @@ class Manifest(object):
                 logging.info('new asset %s (not in current manifest)', asset)
                 return False
             if self.assets[asset]['version'] != newer_manifest.assets[asset]['version']:
-                logging.warn('Static asset %s version mismatch', asset)
+                logging.warning('Static asset %s version mismatch', asset)
                 return False
             return True
         assets_out_of_sync = not all(map(assets_in_sync, newer_manifest.assets))
         if assets_out_of_sync:
-            logging.warn('Static assets out of sync')
+            logging.warning('Static assets out of sync')
         return assets_out_of_sync
 

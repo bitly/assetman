@@ -7,3 +7,6 @@ docs/build/
 #compiled output
 *.pyc
 
+.pytest_cache/
+
+.venv/
