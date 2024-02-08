@@ -10,3 +10,7 @@ docs/build/
 .pytest_cache/
 
 .venv/
+
+dist/
+
+*egg-info/
