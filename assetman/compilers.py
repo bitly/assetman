@@ -200,7 +200,7 @@ class CSSCompiler(AssetCompiler, assetman.managers.CSSManager):
                 logging.debug('Not inlining %s (%.2fKB)', path, os.stat(path).st_size / KB)
                 return match.group(0)
             else:
-                encoded = base64.b64encode(open(path).read())
+                encoded = base64.b64encode(open(path, 'rb').read())
                 mime_type, _ = mimetypes.guess_type(path)
                 if not mime_type and path.endswith('.otf'):
                     mime_type = 'application/octet-stream'
