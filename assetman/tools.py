@@ -19,13 +19,26 @@ def _crc(key):
     return binascii.crc32(_utf8(key)) & 0xffffffff
 
 def _utf8(s):
-    """encode a unicode string as utf-8"""
+    """encode a string as utf-8, returning bytes"""
     if isinstance(s, str):
-        return s.encode("utf-8").decode()
+        return s.encode("utf-8")
     if isinstance(s, bytes):
-        return s.decode("utf-8")
-    assert isinstance(s, str), "_utf8 expected a str, not %r" % type(s)
+        try:
+            s.decode("utf-8")
+        except UnicodeDecodeError:
+            raise AssertionError("Invalid encoding. _utf8 expected a str or utf-8 encoded bytes")
+    assert isinstance(s, bytes), "_utf8 expected a str or utf-8 encoded bytes, not %r" % type(s)
     return s
+
+def _unicode(value):
+    """decode utf-8 bytes, returning string"""
+    if isinstance(value, bytes):
+        try:
+            return value.decode("utf-8")
+        except UnicodeDecodeError:
+            raise AssertionError("Invalid encoding. _unicode expected a str or utf-8 encoded bytes")
+    assert isinstance(value, str), "_unicode expected a str or utf-8 encoded bytes, not %r" % type(value)
+    return value
 
 def iter_template_paths(template_dirs, template_ext):
     """Walks each directory in the given list of template directories,

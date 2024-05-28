@@ -302,7 +302,7 @@ def _build_manifest_helper(static_dir, src_paths, static_url_prefix, manifest):
     for src_path in src_paths:
         # Make sure every source path at least has the skeleton entry
         rel_src_path = make_relative_static_path(static_dir, src_path)
-        logging.info('_build_manifest_helper %s (crrent %s)', src_path, manifest.assets.get(rel_src_path))
+        logging.info('_build_manifest_helper %s (current %s)', src_path, manifest.assets.get(rel_src_path))
         manifest.assets.setdefault(rel_src_path, empty_asset_entry())
         for dep_path in iter_deps(static_dir, src_path, static_url_prefix):
             logging.info('%s > dependency %s', src_path, dep_path)
