@@ -10,7 +10,7 @@ import queue as Queue
 import mimetypes
 import logging
 import boto3
-from assetman.tools import make_output_path, make_absolute_static_path, make_relative_static_path, get_static_pattern, get_shard_from_list
+from assetman.tools import make_output_path, make_absolute_static_path, make_relative_static_path, get_static_pattern, get_shard_from_list, _unicode
 
 class S3UploadThread(threading.Thread):
     """Thread that knows how to read asset file names from a queue and upload
@@ -89,7 +89,7 @@ class S3UploadThread(threading.Thread):
         try:
             self.client.head_object(Bucket=obj.bucket_name, Key=obj.key)
         except Exception as e:
-            logging.error('got %s', e)
+            logging.error('got %s when searching for %s', e, obj.key)
             return False
         return True
 
@@ -137,7 +137,6 @@ def upload_assets_to_s3(manifest, settings, skip_s3_upload=False):
     """Uploads any assets that are in the given manifest and in our compiled
     output dir but missing from our static assets bucket to that bucket on S3.
     """
-
     # We will gather a set of (file_name, file_path) tuples to be uploaded
     to_upload = set()
 
@@ -205,4 +204,4 @@ def sub_static_version(src, manifest, replacement_prefix, static_dir, static_url
         logging.warning('Missing path %s in manifest, using %s', path, match.group(0))
         return match.group(0)
     pattern = get_static_pattern(static_url_prefix)
-    return re.sub(pattern, replacer, src)
+    return re.sub(pattern, replacer, _unicode(src))
