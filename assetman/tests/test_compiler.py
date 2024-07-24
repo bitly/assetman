@@ -43,8 +43,8 @@ def run_compiler(test_needs_compile=True, **opts):
     always cause skip_upload to be True, so that we don't upload test assets
     to our CDN.
     """
-
-    manifest = assetman.compile.run(get_settings(test_needs_compile=test_needs_compile, **opts))
+    minify_compressor_path = "/usr/bin/minify"
+    manifest = assetman.compile.run(get_settings(test_needs_compile=test_needs_compile, minify_compressor_path=minify_compressor_path, **opts))
     logging.debug(manifest)
     return manifest
 
