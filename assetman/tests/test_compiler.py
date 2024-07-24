@@ -24,8 +24,8 @@ def get_settings(**opts):
                     skip_s3_upload=True,
                     force_recompile=False,
                     skip_inline_images=True,
-                    closure_compiler=opts.get("closure_compiler", "/bitly/local/bin/closure-compiler.jar"),
-                    minify_compressor_path=opts.get("minify_compressor_path", "/bitly/local/bin/minify"),
+                    closure_compiler=opts.get("closure_compiler", "compiler.jar"),
+                    minify_compressor_path=opts.get("minify_compressor_path", "/usr/bin/minify"),
                     sass_compiler=opts.get("sass_compiler", None),
                     lessc_path=opts.get("lessc_path", None), # less is unused
                     aws_username=None,
@@ -43,9 +43,7 @@ def run_compiler(test_needs_compile=True, **opts):
     always cause skip_upload to be True, so that we don't upload test assets
     to our CDN.
     """
-    minify_compressor_path = "/usr/bin/minify"
-    closure_compiler = "compiler.jar"
-    manifest = assetman.compile.run(get_settings(test_needs_compile=test_needs_compile, minify_compressor_path=minify_compressor_path, closure_compiler=closure_compiler, **opts))
+    manifest = assetman.compile.run(get_settings(test_needs_compile=test_needs_compile, **opts))
     logging.debug(manifest)
     return manifest
 
