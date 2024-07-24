@@ -44,7 +44,8 @@ def run_compiler(test_needs_compile=True, **opts):
     to our CDN.
     """
     minify_compressor_path = "/usr/bin/minify"
-    manifest = assetman.compile.run(get_settings(test_needs_compile=test_needs_compile, minify_compressor_path=minify_compressor_path, **opts))
+    closure_compiler = "compiler.jar"
+    manifest = assetman.compile.run(get_settings(test_needs_compile=test_needs_compile, minify_compressor_path=minify_compressor_path, closure_compiler=closure_compiler, **opts))
     logging.debug(manifest)
     return manifest
 

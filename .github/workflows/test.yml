@@ -23,7 +23,9 @@ jobs:
         python -m pip install pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         sudo apt-get update
-        sudo apt-get install minify
+        sudo apt-get install -y wget minify
+        wget "https://dl.google.com/closure-compiler/compiler-20150315.zip"
+        unzip compiler-20150315.zip compiler.jar
     - name: Test with pytest
       run: |
         pytest
