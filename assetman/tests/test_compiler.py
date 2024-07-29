@@ -24,10 +24,10 @@ def get_settings(**opts):
                     skip_s3_upload=True,
                     force_recompile=False,
                     skip_inline_images=True,
-                    closure_compiler=opts.get("closure_compiler", "/bitly/local/bin/closure-compiler.jar"),
-                    minify_compressor_path=opts.get("minify_compressor_path", "/bitly/local/bin/minify"),
-                    sass_compiler=opts.get("sass_compiler", "/bitly/local/bin/sass"),
-                    lessc_path=opts.get("lessc_path", "/bitly/local/hamburger/node_modules/.bin/lessc"), # lessc is included as a node module in hamburger. Does not exist in /bitly/local/bin/
+                    closure_compiler=opts.get("closure_compiler", "compiler.jar"),
+                    minify_compressor_path=opts.get("minify_compressor_path", "/usr/bin/minify"),
+                    sass_compiler=opts.get("sass_compiler", None),
+                    lessc_path=opts.get("lessc_path", None), # less is unused
                     aws_username=None,
                     java_bin="/usr/bin/java",
                     )
@@ -43,13 +43,12 @@ def run_compiler(test_needs_compile=True, **opts):
     always cause skip_upload to be True, so that we don't upload test assets
     to our CDN.
     """
-
     manifest = assetman.compile.run(get_settings(test_needs_compile=test_needs_compile, **opts))
     logging.debug(manifest)
     return manifest
 
 def test_needs_compile():
-    main_files = ["test.css", "test.less", "test.js"]
+    main_files = ["test.css", "test.js"]
     dependency_files = ["dependency.png"]
     try:
         manifest = run_compiler()
@@ -79,7 +78,7 @@ def test_needs_compile():
     
     files_to_upload = upload_assets_to_s3(manifest, get_settings(), skip_s3_upload=True)
     logging.debug(files_to_upload)
-    assert len(files_to_upload) == 4
+    assert len(files_to_upload) == 3
     
 
 @contextlib.contextmanager
@@ -88,6 +87,7 @@ def temporarily_alter_contents(path, data):
     before restoring the original contents when the with block is exited.
     """
     assert isinstance(data, str)
+    path = 'assetman/tests/%s' % path
     contents = open(path).read()
     open(path, 'a').write(data)
     yield

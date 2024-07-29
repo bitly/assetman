@@ -10,8 +10,8 @@ class TestSettings(unittest.TestCase):
         settings_stub = {
             'testkey1': "testvalue1",
             'testkey2': "testvalue2",
-            "lessc_path" : "asdf",
             "sass_compiler": "asdf",
+            "lessc_path": None,
             "minify_compressor_path": "asdf",
             "closure_compiler": "asdf",
             "java_bin": "asdf"

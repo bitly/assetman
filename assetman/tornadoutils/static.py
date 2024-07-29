@@ -169,7 +169,8 @@ class LessCompilerHandler(CompilingStaticHandler):
         env = {
             'PATH': os.environ.get('PATH', '') 
         }
-        return self.run_proc(cmd, env=env)
+        out = self.run_proc(cmd, env=env)
+        return out
 
 
 class SassCompilerHandler(CompilingStaticHandler):

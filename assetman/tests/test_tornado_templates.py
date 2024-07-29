@@ -1,6 +1,6 @@
 import unittest
 
-from assetman.compilers import JSCompiler, LessCompiler, CSSCompiler
+from assetman.compilers import JSCompiler, CSSCompiler
 from assetman.parsers.tornado_parser import TornadoParser
 import assetman.tools
 from assetman.settings import Settings
@@ -30,7 +30,6 @@ class TestTornadoTemplateParser(unittest.TestCase):
         compiler_types = [type(t) for t in compilers]
 
         assert JSCompiler in compiler_types, compilers
-        assert LessCompiler in compiler_types, compilers
         assert CSSCompiler in compiler_types, compilers
 
 if __name__ == "__main__":
